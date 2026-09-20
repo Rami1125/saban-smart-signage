@@ -3,7 +3,7 @@ import waterproofPail from "@/assets/product-waterproof-pail.jpg";
 import latexSbr from "@/assets/product-latex-sbr.jpg";
 
 export type Companion = {
-  sku?: string;
+  sku?: string | undefined;
   name: string;
   reason: string;
 };
@@ -14,25 +14,25 @@ export type Product = {
   category: string;
   brand: string;
   price: number;
-  salePrice?: number;
-  discountTag?: string;
+  salePrice?: number | undefined;
+  discountTag?: string | undefined;
   marketingPhrase: string;
   image: string;
-  mediaUrl?: string;
-  tdsUrl?: string;
+  mediaUrl?: string | undefined;
+  tdsUrl?: string | undefined;
   unitLabel: string;
   unitWeight: string;
-  unitsPerPallet?: number;
-  palletDeposit?: string;
+  unitsPerPallet?: number | undefined;
+  palletDeposit?: string | undefined;
   /** שטח מומלץ (מ"ר) לכל יחידה בעובי/יישום התקני */
   coveragePerUnitM2: number;
   coverageNote: string;
-  openTime?: string;
-  potLife?: string;
-  dryingTime?: string;
-  mixRatio?: string;
+  openTime?: string | undefined;
+  potLife?: string | undefined;
+  dryingTime?: string | undefined;
+  mixRatio?: string | undefined;
   applicationMethod: string;
-  standard?: string;
+  standard?: string | undefined;
   substrates: string[];
   companions: Companion[];
   displayDuration: number;
