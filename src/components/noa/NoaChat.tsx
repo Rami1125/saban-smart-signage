@@ -314,8 +314,8 @@ function NoaPane({
         <ConversationContent className="gap-3 px-3 py-3">
           {messages.length === 0 && (
             <div className="rounded-2xl bg-muted px-3 py-3 text-sm leading-relaxed">
-              שלום 👋 אני נועה. סרקת את <strong>{product.name}</strong> (מק״ט {product.sku}).
-              ספר לי על איזה מצע אתה עובד ומה השטח במ״ר, ואני אחשב כמויות, פחת ומוצרים משלימים.
+              שלום 👋 אני נועה. סרקת את <strong>{product.name}</strong> (מק״ט {product.sku}). ספר לי
+              על איזה מצע אתה עובד ומה השטח במ״ר, ואני אחשב כמויות, פחת ומוצרים משלימים.
             </div>
           )}
           {messages.map((message) => {

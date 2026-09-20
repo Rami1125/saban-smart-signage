@@ -57,7 +57,9 @@ function rowToProduct(headers: string[], row: GvizRow): Product | null {
     coverageNote: get("coverageNote") || master?.coverageNote || "",
     dryingTime: get("dryingTime") || master?.dryingTime,
     applicationMethod: get("applicationMethod") || master?.applicationMethod || "",
-    substrates: list(get("substrates")).length ? list(get("substrates")) : (master?.substrates ?? []),
+    substrates: list(get("substrates")).length
+      ? list(get("substrates"))
+      : (master?.substrates ?? []),
     displayDuration: num(get("displayDuration")) ?? master?.displayDuration ?? 25,
     isActive: isActive === "" ? true : !["false", "0", "לא"].includes(isActive),
   };

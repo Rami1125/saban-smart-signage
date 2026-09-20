@@ -63,7 +63,8 @@ export const MASTER_PRODUCTS: Product[] = [
     potLife: "כ-4 שעות בדלי",
     dryingTime: "הליכה קלה לאחר 24 שעות, רובה לאחר 24 שעות, אכלוס מלא 7 ימים",
     mixRatio: "6.5-7 ליטר מים לשק 25 ק״ג",
-    applicationMethod: "ערבוב במיקסר איטי (500 סל״ד), מריחה במלג׳ משונן 10 מ״מ, כיבוד כפול לאריחים מעל 60×60",
+    applicationMethod:
+      "ערבוב במיקסר איטי (500 סל״ד), מריחה במלג׳ משונן 10 מ״מ, כיבוד כפול לאריחים מעל 60×60",
     standard: "EN 12004 – C2TE S1",
     substrates: ["בטון", "טיח צמנטי", "מדה", "גבס ירוק", "בלוקים"],
     companions: [
@@ -196,7 +197,10 @@ export function normalizeSku(raw: unknown): string {
   } catch {
     // כתובת לא מקודדת — ממשיכים עם הערך המקורי
   }
-  return value.trim().replace(/[\u200e\u200f]/g, "").replace(/\s+/g, "");
+  return value
+    .trim()
+    .replace(/[\u200e\u200f]/g, "")
+    .replace(/\s+/g, "");
 }
 
 export function findProduct(products: Product[], rawSku: unknown): Product | undefined {

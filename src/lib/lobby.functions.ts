@@ -19,6 +19,7 @@ export const getProductBySku = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<{ product: Product | null; source: string }> => {
     const { getLobbyProductsCached } = await import("./lobby.server");
     const { products, source } = await getLobbyProductsCached();
-    const product = findProduct(products, data.sku) ?? findProduct(MASTER_PRODUCTS, data.sku) ?? null;
+    const product =
+      findProduct(products, data.sku) ?? findProduct(MASTER_PRODUCTS, data.sku) ?? null;
     return { product, source: product ? source : "none" };
   });
