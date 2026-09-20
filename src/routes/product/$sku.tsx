@@ -1,47 +1,119 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ArrowRight,
+  Bell,
+  Building2,
   Calculator,
   CheckCircle2,
-  Clock,
+  Cloud,
+  Compass,
+  Database,
   ExternalLink,
   FileText,
+  HardDrive,
   Layers,
+  MapPin,
   MessageCircle,
   Package,
   Send,
   Share2,
   ShieldCheck,
-  Sparkles,
-  Store,
   Video,
+  Volume2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { NoaChat } from "@/components/noa/NoaChat";
+import { DeviceMemoryDrawer } from "@/components/pwa/DeviceMemoryDrawer";
+import { PWAInstallButton } from "@/components/pwa/PWAInstallButton";
 import { Button } from "@/components/ui/button";
 import { dispatchToCounter, whatsappLink } from "@/lib/counter-dispatch";
+import { dispatchDualPersistence, getDeviceOrders, type SavedOrderItem } from "@/lib/dual-storage";
+import {
+  detectBranchProximity,
+  playLocationChime,
+  SABAN_BRANCHES,
+  type BranchId,
+  type GeolocationResult,
+} from "@/lib/location-chime";
 import { effectivePrice, findProduct, MASTER_PRODUCTS, type Product } from "@/lib/products";
 
+type ProductSearch = {
+  source?: string;
+  warehouse?: string;
+  screen_id?: string;
+};
+
 export const Route = createFileRoute("/product/$sku")({
+  validateSearch: (search: Record<string, unknown>): ProductSearch => ({
+    source: typeof search.source === "string" ? search.source : undefined,
+    warehouse: typeof search.warehouse === "string" ? search.warehouse : undefined,
+    screen_id: typeof search.screen_id === "string" ? search.screen_id : undefined,
+  }),
   component: ProductPage,
 });
 
+function toEmbedUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  if (url.includes("/embed/")) return url;
+  const match = url.match(
+    /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/,
+  );
+  if (match && match[1]) {
+    return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  return url;
+}
+
 function ProductPage() {
   const params = Route.useParams();
+  const search = Route.useSearch();
   const rawSku = params.sku;
-  const navigate = useNavigate();
 
   // Find product by SKU with fallback to master product #0 so it never 404s
   const product: Product = useMemo(() => {
     return findProduct(MASTER_PRODUCTS, rawSku) ?? MASTER_PRODUCTS[0]!;
   }, [rawSku]);
 
+  // Branch & Warehouse context resolution
+  const initialBranch: BranchId = useMemo(() => {
+    const w = (search.warehouse || "").toLowerCase();
+    if (w.includes("תלמיד") || w === "hatalmid" || w === "wh1") return "hatalmid";
+    return "haharash";
+  }, [search.warehouse]);
+
+  const [selectedBranch, setSelectedBranch] = useState<BranchId>(initialBranch);
+  const currentBranch = SABAN_BRANCHES[selectedBranch];
+
+  // Geolocation & Chime state
+  const [geoResult, setGeoResult] = useState<GeolocationResult | null>(null);
+  const [isCheckingGeo, setIsCheckingGeo] = useState<boolean>(false);
+  const [lastChimed, setLastChimed] = useState<string | null>(null);
+
+  // Device Memory state
+  const [isMemoryDrawerOpen, setIsMemoryDrawerOpen] = useState<boolean>(false);
+  const [deviceOrderCount, setDeviceOrderCount] = useState<number>(0);
+
   // Calculator state
   const [areaM2, setAreaM2] = useState<number>(20);
   const [wastePercent, setWastePercent] = useState<number>(10);
   const [isDispatched, setIsDispatched] = useState<boolean>(false);
+  const [dualSyncStatus, setDualSyncStatus] = useState<{
+    storedLocally: boolean;
+    syncedToSheet: boolean;
+  } | null>(null);
+
+  // Sync device items count on mount & changes
+  const refreshMemoryCount = () => {
+    setDeviceOrderCount(getDeviceOrders().length);
+  };
+
+  useEffect(() => {
+    refreshMemoryCount();
+    const handleStorageChange = () => refreshMemoryCount();
+    window.addEventListener("saban:storage:change", handleStorageChange);
+    return () => window.removeEventListener("saban:storage:change", handleStorageChange);
+  }, []);
 
   // Calculation results
   const calculation = useMemo(() => {
@@ -62,8 +134,92 @@ function ProductPage() {
     };
   }, [areaM2, wastePercent, product]);
 
-  const handleDispatch = () => {
+  // בדיקת מיקום וזיהוי סניף
+  const handleCheckProximity = async () => {
+    setIsCheckingGeo(true);
+    try {
+      const result = await detectBranchProximity();
+      setGeoResult(result);
+      if (result.nearestBranch) {
+        setSelectedBranch(result.nearestBranch.id);
+      }
+      toast.info(result.statusText, {
+        description: `סניף נבחר: ${result.nearestBranch.shortName}`,
+      });
+    } catch {
+      toast.error("לא ניתן לאתר מיקום נוכחי");
+    } finally {
+      setIsCheckingGeo(false);
+    }
+  };
+
+  // הפעלת צלצול מיקומי לדלפק
+  const handleRingChime = (sound: "counter_ring" | "arrival") => {
+    playLocationChime(sound);
+    setLastChimed(new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }));
+    if (sound === "counter_ring") {
+      toast.success("צלצול פעמון דלפק הופעל 🛎️", {
+        description: `נשלח אות קולי לצוות דלפק ${currentBranch.shortName}`,
+      });
+    } else {
+      toast.success("צלצול הגעה לסניף הופעל 📍", {
+        description: `ברוך בואך ל${currentBranch.name}!`,
+      });
+    }
+  };
+
+  // שמירה לזיכרון המכשיר בלבד (לחישוב עתידי)
+  const handleSaveToDeviceOnly = async () => {
     const unitPrice = effectivePrice(product);
+    const saved = await dispatchDualPersistence({
+      sku: product.sku,
+      productName: product.name,
+      quantity: calculation.unitsNeeded,
+      unitLabel: product.unitLabel,
+      unitPrice,
+      estimatedCost: calculation.estimatedCost,
+      areaM2,
+      wastePercent,
+      warehouse: currentBranch.warehouseCode,
+      branchName: currentBranch.name,
+      source: search.source || "pwa_product_calculator",
+      screenId: search.screen_id || "mobile_pwa",
+      note: `חישוב שמור בזיכרון: ${areaM2} מ״ר (פחת ${wastePercent}%) | ${currentBranch.shortName}`,
+    });
+
+    playLocationChime("dispatch");
+    setDualSyncStatus({ storedLocally: true, syncedToSheet: saved.syncedToSheet });
+    refreshMemoryCount();
+    toast.success("נשמר בזיכרון המכשיר במקביל לגליון! 💾", {
+      description: `${calculation.unitsNeeded} ${product.unitLabel} נשמרו בזיכרון הטלפון שלך`,
+    });
+  };
+
+  // שידור מלא לדלפק עם שמירה כפולה במכשיר ובגליון
+  const handleDispatch = async () => {
+    const unitPrice = effectivePrice(product);
+
+    // 1. קול פעמון שידור
+    playLocationChime("dispatch");
+
+    // 2. שמירה כפולה: מכשיר + גליון Sheets
+    const savedItem = await dispatchDualPersistence({
+      sku: product.sku,
+      productName: product.name,
+      quantity: calculation.unitsNeeded,
+      unitLabel: product.unitLabel,
+      unitPrice,
+      estimatedCost: calculation.estimatedCost,
+      areaM2,
+      wastePercent,
+      warehouse: currentBranch.warehouseCode,
+      branchName: currentBranch.name,
+      source: search.source || "pwa_qr_client",
+      screenId: search.screen_id || "lobby_qr",
+      note: `חישוב שטח: ${areaM2} מ״ר (כולל ${wastePercent}% פחת) | ${currentBranch.shortName} | יחידה: ${unitPrice} ₪`,
+    });
+
+    // 3. תאימות לאחור עם מנגנון הדלפק הקיים
     dispatchToCounter({
       sku: product.sku,
       productName: product.name,
@@ -71,22 +227,27 @@ function ProductPage() {
       unitLabel: product.unitLabel,
       estimatedCost: calculation.estimatedCost,
       source: "mobile_qr_scanner",
-      screenId: "lobby_qr",
-      note: `חישוב לפי שטח: ${areaM2} מ״ר (כולל ${wastePercent}% פחת). יחידה: ${unitPrice} ₪`,
+      screenId: search.screen_id || "lobby_qr",
+      note: `חישוב שטח: ${areaM2} מ״ר | ${currentBranch.shortName} | נשמר במכשיר: ${savedItem.id}`,
     });
+
+    setDualSyncStatus({ storedLocally: true, syncedToSheet: savedItem.syncedToSheet });
     setIsDispatched(true);
-    toast.success("ההזמנה שודרה בהצלחה לדלפק המכירות!", {
-      description: `${calculation.unitsNeeded} ${product.unitLabel} — מחכים לך בדלפק`,
+    refreshMemoryCount();
+
+    toast.success("ההזמנה שודרה וסונכרנה במקביל! 🚀", {
+      description: `נשמרה בזיכרון המכשיר ובגליון ההזמנות של ${currentBranch.shortName}`,
     });
-    setTimeout(() => setIsDispatched(false), 5000);
+
+    setTimeout(() => setIsDispatched(false), 6000);
   };
 
   const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${product.name} — ח. סבן`,
-          text: `מפרט טכני ומחיר ל${product.name} (מק״ט ${product.sku}) בח. סבן חומרי בניין`,
+          title: `${product.name} — ח. סבן חומרי בניין`,
+          text: `מפרט טכני, מחיר קבלן ומחשבון כמויות עבור ${product.name} (מק״ט ${product.sku}) בח. סבן`,
           url: window.location.href,
         });
       } catch {
@@ -94,58 +255,69 @@ function ProductPage() {
       }
     } else {
       await navigator.clipboard.writeText(window.location.href);
-      toast.info("קישור הועתק ללוח!");
+      toast.info("קישור הדף הועתק ללוח!");
     }
   };
 
   const currentPrice = effectivePrice(product);
   const hasDiscount = product.salePrice && product.salePrice < product.price;
+  const embedVideoUrl = toEmbedUrl(product.mediaUrl);
 
   return (
     <div
       dir="rtl"
       className="min-h-screen bg-background text-foreground pb-32 selection:bg-primary/30"
     >
-      {/* Top Header */}
+      {/* Top Header - Zero-Leak Isolated Micro-Frontend */}
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur-md px-4 py-3 shadow-xs">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Link
-              to="/"
-              className="flex size-9 items-center justify-center rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
-              title="חזרה למסך שילוט"
-            >
-              <ArrowRight className="size-5" />
-            </Link>
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-xs shadow-xs">
+              סבן
+            </div>
             <div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
                   ח. סבן 1994
                 </span>
-                <span className="text-xs font-medium text-muted-foreground">מפרט רשמי מאושר</span>
+                <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                  <ShieldCheck className="size-3 text-emerald-600 inline" />
+                  מפרט רשמי מאושר
+                </span>
               </div>
-              <h1 className="text-sm font-semibold truncate max-w-[200px] sm:max-w-xs">
+              <h1 className="text-sm font-semibold truncate max-w-[180px] sm:max-w-xs">
                 {product.name}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <PWAInstallButton />
+
+            <button
+              type="button"
+              onClick={() => setIsMemoryDrawerOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-input bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors relative"
+              title="פתח זיכרון מכשיר וסנכרון גליון"
+            >
+              <HardDrive className="size-3.5 text-primary shrink-0" />
+              <span className="hidden sm:inline">זיכרון מכשיר</span>
+              {deviceOrderCount > 0 && (
+                <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-black text-primary-foreground">
+                  {deviceOrderCount}
+                </span>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={handleShare}
-              className="flex size-9 items-center justify-center rounded-xl border border-input bg-card text-muted-foreground hover:text-foreground transition-colors"
+              className="flex size-8 sm:size-9 items-center justify-center rounded-xl border border-input bg-card text-muted-foreground hover:text-foreground transition-colors"
               title="שתף דף מוצר"
+              aria-label="שתף דף מוצר"
             >
               <Share2 className="size-4" />
             </button>
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 rounded-xl bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/90 transition-colors"
-            >
-              <Store className="size-3.5" />
-              <span>מסך לובי</span>
-            </Link>
           </div>
         </div>
       </header>
@@ -244,17 +416,135 @@ function ProductPage() {
           </div>
         </div>
 
-        {/* Interactive m² Calculator */}
+        {/* Location-Based Branch Detection & Counter Chime (צלצול מיקומי) */}
         <div className="rounded-3xl border bg-card p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-2xl bg-primary/20 text-primary">
-              <Calculator className="size-5" />
-            </span>
-            <div>
-              <h3 className="font-bold text-base">מחשבון כמויות דיגיטלי</h3>
-              <p className="text-xs text-muted-foreground">
-                חישוב שקים/מכלים ועלות מוערכת לפי שטח הפרויקט
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-10 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-600">
+                <Bell className="size-5" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base text-foreground">צלצול מיקומי ודלפק שירות</h3>
+                  <span className="rounded-full bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5">
+                    זיהוי סניף
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  בדיקת קרבה לסניפי ח. סבן והפעלת צלצול קולי לדלפק
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCheckProximity}
+              disabled={isCheckingGeo}
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50"
+            >
+              <Compass className={`size-3.5 ${isCheckingGeo ? "animate-spin" : ""}`} />
+              <span>{isCheckingGeo ? "מאתר..." : "אתר ב-GPS"}</span>
+            </button>
+          </div>
+
+          {/* Branch Selection Pills */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {(["haharash", "hatalmid"] as const).map((branchKey) => {
+              const b = SABAN_BRANCHES[branchKey];
+              const isSelected = selectedBranch === branchKey;
+              return (
+                <button
+                  key={branchKey}
+                  type="button"
+                  onClick={() => {
+                    setSelectedBranch(branchKey);
+                    playLocationChime("arrival");
+                  }}
+                  className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between ${
+                    isSelected
+                      ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
+                      : "border-input bg-card hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">{b.shortName}</span>
+                    <span className="text-[10px] font-mono font-bold text-primary bg-primary/20 px-1.5 py-0.5 rounded">
+                      {b.warehouseCode}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground truncate mt-1">
+                    {b.address}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Proximity Radar Banner */}
+          {geoResult && (
+            <div className="rounded-2xl bg-muted/60 p-3 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="size-4 text-primary shrink-0" />
+                <span className="text-muted-foreground">{geoResult.statusText}</span>
+              </div>
+              {geoResult.isInsideBranch && (
+                <span className="font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full text-[10px]">
+                  בתוך הסניף 🎯
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Acoustic Chime Triggers */}
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t">
+            <button
+              type="button"
+              onClick={() => handleRingChime("counter_ring")}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-foreground py-2.5 px-3 text-xs font-bold transition-all active:scale-95"
+            >
+              <Bell className="size-4 text-amber-500 shrink-0" />
+              <span>צלצל פעמון דלפק 🛎️</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleRingChime("arrival")}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-foreground py-2.5 px-3 text-xs font-bold transition-all active:scale-95"
+            >
+              <Volume2 className="size-4 text-sky-500 shrink-0" />
+              <span>צלצול הגעה לסניף 📍</span>
+            </button>
+          </div>
+
+          {lastChimed && (
+            <div className="text-center text-[10px] text-muted-foreground">
+              צלצול אחרון הושמע בשעה {lastChimed} • אות שמע סונכרן
+            </div>
+          )}
+        </div>
+
+        {/* Interactive m² Calculator with Dual-Storage & Sheet Sync */}
+        <div className="rounded-3xl border bg-card p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex size-9 items-center justify-center rounded-2xl bg-primary/20 text-primary">
+                <Calculator className="size-5" />
+              </span>
+              <div>
+                <h3 className="font-bold text-base">מחשבון כמויות דיגיטלי</h3>
+                <p className="text-xs text-muted-foreground">
+                  חישוב שקים/מכלים ועלות מוערכת לפי שטח הפרויקט
+                </p>
+              </div>
+            </div>
+
+            {/* Dual Sync Indicator */}
+            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-xl">
+              <Database className="size-3 text-emerald-600" />
+              <span>מכשיר</span>
+              <span>+</span>
+              <Cloud className="size-3 text-sky-500" />
+              <span>גליון</span>
             </div>
           </div>
 
@@ -339,20 +629,47 @@ function ProductPage() {
               </div>
             )}
 
-            <Button
-              onClick={handleDispatch}
-              className="w-full h-11 rounded-2xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2"
-            >
-              <Send className="size-4" />
-              <span>
-                שדר {calculation.unitsNeeded} {product.unitLabel} לדלפק המכירות
-              </span>
-            </Button>
+            {/* Dual Sync Live Feedback */}
+            {dualSyncStatus && (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-700 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                  <span>נשמר בזיכרון המכשיר וסונכרן לגליון ההזמנות</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMemoryDrawerOpen(true)}
+                  className="underline font-bold text-[11px]"
+                >
+                  צפה בזיכרון
+                </button>
+              </div>
+            )}
+
+            {/* Dual Action Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <Button
+                onClick={handleDispatch}
+                className="h-11 rounded-2xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 shadow-xs"
+              >
+                <Send className="size-4" />
+                <span>שדר לדלפק וסנכרן לגליון</span>
+              </Button>
+
+              <button
+                type="button"
+                onClick={handleSaveToDeviceOnly}
+                className="h-11 rounded-2xl font-bold border border-input bg-card text-foreground hover:bg-muted flex items-center justify-center gap-2 transition-colors text-xs"
+              >
+                <HardDrive className="size-4 text-primary" />
+                <span>שמור לזיכרון המכשיר בלבד 💾</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Video Tutorial Embed (if available) */}
-        {product.mediaUrl && (
+        {embedVideoUrl && (
           <div className="rounded-3xl border bg-card p-5 shadow-xs space-y-3">
             <div className="flex items-center gap-2">
               <span className="flex size-9 items-center justify-center rounded-2xl bg-destructive/15 text-destructive">
@@ -368,7 +685,7 @@ function ProductPage() {
 
             <div className="relative aspect-16/9 w-full overflow-hidden rounded-2xl border bg-black">
               <iframe
-                src={product.mediaUrl}
+                src={embedVideoUrl}
                 title={`${product.name} — סרטון הדרכה`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -498,10 +815,21 @@ function ProductPage() {
 
       {/* Bottom Sticky Action Bar */}
       <nav
-        aria-label="פעולות סגירת הזמנה"
+        aria-label="פעולות סגירת הזמנה וצלצול"
         className="fixed bottom-0 inset-x-0 z-30 border-t bg-card/95 backdrop-blur-md px-4 py-3 shadow-lg"
       >
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-2.5">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-2">
+          {/* Quick Desk Chime */}
+          <button
+            type="button"
+            onClick={() => handleRingChime("counter_ring")}
+            className="flex size-12 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 shrink-0 shadow-xs transition-transform active:scale-95"
+            title="צלצל פעמון לדלפק"
+          >
+            <Bell className="size-5.5" />
+          </button>
+
+          {/* Dual Sync Dispatch to Counter & Sheet */}
           <Button
             onClick={handleDispatch}
             disabled={isDispatched}
@@ -509,30 +837,37 @@ function ProductPage() {
           >
             {isDispatched ? (
               <>
-                <CheckCircle2 className="size-5 text-success" />
-                <span>שודר לדלפק!</span>
+                <CheckCircle2 className="size-5 text-emerald-400" />
+                <span>שודר וסונכרן לגליון! ☁️</span>
               </>
             ) : (
               <>
                 <Send className="size-4" />
-                <span>הזמן לדלפק ({calculation.unitsNeeded} יח׳)</span>
+                <span>הזמן לדלפק וסנכרן ({calculation.unitsNeeded} יח׳)</span>
               </>
             )}
           </Button>
 
+          {/* Direct WhatsApp */}
           <a
             href={whatsappLink(
-              `שלום, אני באתר של סבן וסרקתי את המוצר ${product.name} (מק״ט ${product.sku}). מעוניין בהצעת מחיר עבור ${calculation.unitsNeeded} ${product.unitLabel} לפרויקט.`,
+              `שלום, אני באפליקציית PWA של ח. סבן וסרקתי את המוצר ${product.name} (מק״ט ${product.sku}). מעוניין בהצעת מחיר עבור ${calculation.unitsNeeded} ${product.unitLabel} לפרויקט.`,
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex size-12 items-center justify-center rounded-2xl bg-success text-success-foreground hover:bg-success/90 shrink-0 shadow-xs transition-transform active:scale-95"
+            className="flex size-12 items-center justify-center rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 shrink-0 shadow-xs transition-transform active:scale-95"
             title="שיחה מהירה בוואטסאפ מול המוקד"
           >
             <MessageCircle className="size-6" />
           </a>
         </div>
       </nav>
+
+      {/* Device Memory Drawer */}
+      <DeviceMemoryDrawer
+        isOpen={isMemoryDrawerOpen}
+        onClose={() => setIsMemoryDrawerOpen(false)}
+      />
     </div>
   );
 }

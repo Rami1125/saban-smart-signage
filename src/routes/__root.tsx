@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 
 function NotFoundComponent() {
   return (
@@ -76,30 +77,43 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Saban Smart Signage" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+      },
+      { title: "ח. סבן 1994 | שילוט חכם ודלפק לקוח PWA" },
       {
         name: "description",
         content:
-          "Smart digital signage, interactive product advisor and POS dispatch system for Saban Building Materials",
+          "אפליקציית לקוח PWA מקצועית לח. סבן חומרי בניין (1994) בע״מ — מפרטים טכניים, צלצול מיקומי לדלפק, מחשבון כמויות, שמירה כפולה במכשיר ובגליון וייעוץ מומחה נועה AI",
       },
       { name: "author", content: "ח. סבן חומרי בניין (1994) בע״מ" },
-      { property: "og:title", content: "Saban Smart Signage" },
+      { name: "theme-color", content: "#0f172a" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "ח. סבן 1994" },
+      { property: "og:title", content: "ח. סבן 1994 | שילוט חכם ודלפק לקוח PWA" },
       {
         property: "og:description",
         content:
-          "Smart digital signage, interactive product advisor and POS dispatch system for Saban Building Materials",
+          "מפרטים טכניים, צלצול מיקומי לדלפק, מחשבון כמויות, שמירת זיכרון במכשיר ובגליון ושידור הזמנות מהיר",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://saban-smart-signage.vercel.app/" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@saban1994" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "canonical", href: "https://saban-smart-signage.vercel.app/" },
     ],
   }),
   shellComponent: RootShell,
@@ -125,8 +139,25 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    // Register PWA Service Worker in production/client
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => {
+            console.log("[PWA] Service Worker registered with scope:", reg.scope);
+          })
+          .catch((err) => {
+            console.warn("[PWA] Service Worker registration failed:", err);
+          });
+      });
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
+      <OfflineIndicator />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

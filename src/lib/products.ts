@@ -188,7 +188,7 @@ export const MASTER_PRODUCTS: Product[] = [
   },
 ];
 
-/** ניקוי מק״ט שהתקבל מה-QR או מכתובת ה-URL */
+/** ניקוי וסניטיזציה מלאה של מק״ט שהתקבל מה-QR או מכתובת ה-URL */
 export function normalizeSku(raw: unknown): string {
   if (raw === null || raw === undefined) return "";
   let value = String(raw);
@@ -199,19 +199,53 @@ export function normalizeSku(raw: unknown): string {
   }
   return value
     .trim()
-    .replace(/[\u200e\u200f]/g, "")
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, "")
+    .replace(/^#+/, "")
+    .replace(/^(?:sku|item|product|sika)[-_:]/i, "")
     .replace(/\s+/g, "");
 }
 
 export function findProduct(products: Product[], rawSku: unknown): Product | undefined {
+  const pool = products && products.length > 0 ? products : MASTER_PRODUCTS;
   const sku = normalizeSku(rawSku);
-  if (!sku) return undefined;
+
+  if (!sku) {
+    return pool.find((p) => p.sku === "19255") ?? pool[0] ?? MASTER_PRODUCTS[0];
+  }
+
   const lower = sku.toLowerCase();
-  return (
-    products.find((p) => normalizeSku(p.sku).toLowerCase() === lower) ??
-    products.find((p) => normalizeSku(p.sku).replace(/^0+/, "") === sku.replace(/^0+/, "")) ??
-    products.find((p) => p.name.toLowerCase() === lower)
+  const digitsOnly = sku.replace(/\D/g, "");
+
+  // 1. התאמה מדויקת של מק״ט מנורמל
+  let match = pool.find((p) => normalizeSku(p.sku).toLowerCase() === lower);
+  if (match) return match;
+
+  // 2. התאמה נומרית תוך הסרת אפסים מובילים ('19255' מול 19255 מול '0019255')
+  match = pool.find(
+    (p) => normalizeSku(p.sku).replace(/^0+/, "") === sku.replace(/^0+/, "") && sku !== "",
   );
+  if (match) return match;
+
+  // 3. התאמת ספרות בלבד אם קיימות לפחות 3 ספרות
+  if (digitsOnly && digitsOnly.length >= 3) {
+    match = pool.find((p) => {
+      const pDigits = normalizeSku(p.sku).replace(/\D/g, "");
+      return pDigits === digitsOnly || (pDigits.length >= 4 && digitsOnly.includes(pDigits));
+    });
+    if (match) return match;
+  }
+
+  // 4. התאמה לפי שם מוצר או מותג
+  match = pool.find(
+    (p) =>
+      p.name.toLowerCase().includes(lower) ||
+      lower.includes(p.name.toLowerCase()) ||
+      p.brand.toLowerCase() === lower,
+  );
+  if (match) return match;
+
+  // 5. עוגן ביטחון: לא מציגים לעולם 404 — מחזירים את מוצר הדגל 19255 (סיקה סרם 255)
+  return pool.find((p) => p.sku === "19255") ?? pool[0] ?? MASTER_PRODUCTS[0];
 }
 
 export function effectivePrice(product: Product): number {

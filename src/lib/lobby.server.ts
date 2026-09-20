@@ -65,7 +65,29 @@ function rowToProduct(headers: string[], row: GvizRow): Product | null {
   };
 }
 
+async function fetchFromAppsScript(): Promise<Product[] | null> {
+  const webhookUrl =
+    process.env.GOOGLE_SHEETS_WEBHOOK_URL ||
+    "https://script.google.com/macros/s/AKfycbxxMuFP5evxDx8vxd3BfCQgx73H88KTOB87AzbiCAEx69UVJE1qmoCMyF9KM9qljvAX/exec";
+  try {
+    const res = await fetch(`${webhookUrl}?action=products`, { redirect: "follow" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { success?: boolean; products?: Product[] };
+    if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+      return data.products;
+    }
+  } catch (err) {
+    console.warn("Could not fetch products from Apps Script:", err);
+  }
+  return null;
+}
+
 async function fetchFromSheets(): Promise<Product[] | null> {
+  const fromAppsScript = await fetchFromAppsScript();
+  if (fromAppsScript && fromAppsScript.length > 0) {
+    return fromAppsScript;
+  }
+
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
     SHEET_TAB,
   )}`;

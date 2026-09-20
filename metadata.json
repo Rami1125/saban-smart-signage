@@ -1,6 +1,6 @@
 {
   "name": "Saban Smart Signage",
-  "description": "Smart digital signage, interactive product advisor and POS dispatch system for Saban Building Materials",
-  "requestFramePermissions": [],
+  "description": "Smart digital signage, client PWA, location chime, device memory and Google Sheets sync for Saban Building Materials 1994",
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

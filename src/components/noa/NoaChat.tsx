@@ -19,6 +19,8 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { dispatchToCounter, whatsappLink } from "@/lib/counter-dispatch";
+import { dispatchDualPersistence } from "@/lib/dual-storage";
+import { playLocationChime } from "@/lib/location-chime";
 import { effectivePrice, type Product } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
@@ -293,7 +295,7 @@ function NoaPane({
     await sendMessage({ text });
   };
 
-  const dispatch = () => {
+  const dispatch = async () => {
     if (!order) return;
     dispatchToCounter({
       sku: product.sku,
@@ -305,7 +307,47 @@ function NoaPane({
       source: "noa_chat",
       ...(screenId ? { screenId } : {}),
     });
-    toast.success("ההזמנה שודרה לדלפק המכירות");
+
+    // Dual persistence: Device memory + Google Sheets sync
+    await dispatchDualPersistence({
+      sku: product.sku,
+      productName: product.name,
+      quantity: order.quantity,
+      unitLabel: product.unitLabel,
+      unitPrice: effectivePrice(product),
+      estimatedCost: order.cost || order.quantity * effectivePrice(product),
+      warehouse: product.preferredWarehouse || "סניף החרש (מחסן 4 - ראשי)",
+      branchName: "סניף החרש",
+      note: "סוכם בשיחה עם נועה 💭",
+      source: "יועצת AI נועה (PWA)",
+      screenId: screenId || "pwa_noa",
+    });
+
+    // Log consultation to Google Sheets (יומן_שיחות_נועה)
+    fetch("/api/sheets-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "log_chat",
+        chat: {
+          sku: product.sku,
+          productName: product.name,
+          branch: product.preferredWarehouse || "סניף החרש",
+          question: messages
+            .filter((m) => m.role === "user")
+            .map((m) => messageText(m))
+            .slice(-2)
+            .join(" | "),
+          answer: lastAssistant ? messageText(lastAssistant).slice(0, 400) : "",
+          quantity: order.quantity,
+          cost: order.cost,
+          dispatched: true,
+        },
+      }),
+    }).catch((err) => console.warn("Could not log chat to sheets:", err));
+
+    playLocationChime("dispatch");
+    toast.success("ההזמנה שודרה לדלפק וסונכרנה לגליון סבן");
   };
 
   return (

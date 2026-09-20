@@ -27,6 +27,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { NoaChat } from "@/components/noa/NoaChat";
+import { PWAInstallButton } from "@/components/pwa/PWAInstallButton";
 import { Button } from "@/components/ui/button";
 import {
   clearDispatchQueue,
@@ -56,6 +57,11 @@ export function Index() {
 
   // Counter POS queue state
   const [dispatchQueue, setDispatchQueue] = useState<DispatchOrder[]>([]);
+  const [isClient, setIsClient] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Fetch cached products from lobby server function if available
   useEffect(() => {
@@ -135,13 +141,13 @@ export function Index() {
   // Generate QR URL targeting standalone product page
   const qrUrl = useMemo(() => {
     const origin =
-      typeof window !== "undefined" && window.location.origin
+      isClient && typeof window !== "undefined"
         ? window.location.origin
-        : "https://tv-noa-three.vercel.app";
-    return `${origin}/product/${currentProduct.sku}?source=lobby_qr&screen_id=${encodeURIComponent(
+        : "https://saban-smart-signage.vercel.app";
+    return `${origin}/product/${currentProduct.sku}?source=lobby_qr&warehouse=auto&screen_id=${encodeURIComponent(
       selectedScreen,
     )}`;
-  }, [currentProduct.sku, selectedScreen]);
+  }, [isClient, currentProduct.sku, selectedScreen]);
 
   const price = effectivePrice(currentProduct);
   const hasDiscount = currentProduct.salePrice && currentProduct.salePrice < currentProduct.price;
@@ -222,6 +228,8 @@ export function Index() {
               <span>תצוגת נייד</span>
               <ExternalLink className="size-3 opacity-60" />
             </Link>
+
+            <PWAInstallButton />
           </div>
 
           {/* Sync & Location Badges */}
@@ -389,8 +397,14 @@ export function Index() {
 
               {/* QR Code Container with High-Contrast White Card */}
               <div className="my-6 flex flex-col items-center justify-center">
-                <div className="rounded-3xl bg-white p-5 shadow-xl flex items-center justify-center">
-                  <QRCodeSVG value={qrUrl} size={220} level="Q" includeMargin={false} />
+                <div className="rounded-3xl bg-white p-5 shadow-xl flex items-center justify-center min-w-[260px] min-h-[260px]">
+                  {isClient ? (
+                    <QRCodeSVG value={qrUrl} size={220} level="Q" includeMargin={false} />
+                  ) : (
+                    <div className="size-[220px] rounded-2xl bg-neutral-100/80 flex items-center justify-center text-neutral-400">
+                      <QrCode className="size-16 opacity-40 animate-pulse" />
+                    </div>
+                  )}
                 </div>
                 <span className="text-[11px] text-signage-muted mt-3 font-mono">
                   {currentProduct.sku} • {selectedScreen}

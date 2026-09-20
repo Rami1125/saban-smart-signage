@@ -1,14 +1,14 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createFileRoute } from "@tanstack/react-router";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
-
 import {
-  createLovableAiGatewayRunIdFetch,
-  getLovableAiGatewayResponseHeaders,
-  getLovableAiGatewayRunId,
-  withLovableAiGatewayRunIdHeader,
-} from "@/lib/ai-gateway.server";
-import { MASTER_PRODUCTS, findProduct, type Product } from "@/lib/products";
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  streamText,
+  type UIMessage,
+} from "ai";
+
+import { MASTER_PRODUCTS, effectivePrice, findProduct, type Product } from "@/lib/products";
 
 type ChatRequestBody = { messages?: unknown; sku?: unknown };
 
@@ -67,6 +67,27 @@ ${catalog}
 ${product ? `המוצר שהלקוח סרק כרגע:\n${productBrief(product)}` : "הלקוח לא סרק מוצר ספציפי."}`;
 }
 
+function buildFallbackResponse(product: Product | undefined, userText: string): string {
+  if (!product) {
+    return "שלום! כאן נועה מסבן חומרי בניין. אנא סרוק מוצר או בחר פריט מהקטלוג כדי שאוכל לחשב כמויות ולייעץ במדויק.";
+  }
+
+  const price = effectivePrice(product);
+  const matchArea = userText.match(/(\d+(?:\.\d+)?)\s*(?:מ"ר|מר|מטר|מ״ר)/);
+  if (matchArea) {
+    const area = parseFloat(matchArea[1]);
+    const requiredUnits = Math.ceil((area / product.coveragePerUnitM2) * 1.1);
+    const totalCost = (requiredUnits * price).toLocaleString("he-IL");
+    const companionsText = product.companions.length
+      ? `\n\n💡 שים לב: מומלץ להצטייד גם ב-${product.companions.map((c) => c.name).join(", ")}.`
+      : "";
+
+    return `שלום! עבור שטח של ${area} מ״ר (כולל 10% פחת ביטחון):\n\nהזמנה: ${product.name} | מק״ט ${product.sku} | כמות: ${requiredUnits} ${product.unitLabel} | עלות מוערכת: ${totalCost} ₪${companionsText}\n\nניתן ללחוץ על "שדר לדלפק המכירות" להכנת ההזמנה במחסן, או לשלוח בוואטסאפ לדלפק בטלפון ${WHATSAPP}.`;
+  }
+
+  return `שלום! אני נועה, יועצת טכנית של ח. סבן.\nלגבי ${product.name} (מק״ט ${product.sku}):\n• כושר כיסוי: ${product.coveragePerUnitM2} מ״ר ל${product.unitLabel} (${product.coverageNote})\n• מחיר: ${price} ₪ ל${product.unitLabel}\n• יישום: ${product.applicationMethod}\n\nכתוב לי מה שטח העבודה (במ״ר) ואחשב עבורך מיד כמות מדויקת ועלות מוערכת, או אשדר לדלפק!`;
+}
+
 export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
@@ -76,52 +97,61 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
-        const key = process.env["LOVABLE_API_KEY"];
-        if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
-
         let product = findProduct(MASTER_PRODUCTS, body.sku);
         try {
           const { getLobbyProductsCached } = await import("@/lib/lobby.server");
           const { products } = await getLobbyProductsCached();
           product = findProduct(products, body.sku) ?? product;
         } catch {
-          // נשארים עם נתוני הגיבוי
+          // Keep fallback catalog
         }
 
-        const initialRunId = getLovableAiGatewayRunId(request);
-        const runIdFetch = createLovableAiGatewayRunIdFetch(initialRunId);
-        const lovable = createOpenAI({
-          baseURL: "https://ai.gateway.lovable.dev/v1",
-          apiKey: key,
-          headers: { "Lovable-API-Key": key, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-          fetch: runIdFetch.fetch,
-        });
+        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-        const result = streamText({
-          model: lovable.responses("openai/gpt-6-astra"),
-          system: buildSystemPrompt(product),
-          messages: await convertToModelMessages(body.messages as UIMessage[]),
-          abortSignal: request.signal,
-          providerOptions: {
-            openai: {
-              forceReasoning: true,
-              reasoningEffort: "low",
-              reasoningSummary: "auto",
-              store: false,
-              include: ["reasoning.encrypted_content"],
-            },
+        if (apiKey) {
+          const google = createGoogleGenerativeAI({ apiKey });
+          const result = streamText({
+            model: google("gemini-2.5-flash"),
+            system: buildSystemPrompt(product),
+            messages: await convertToModelMessages(body.messages as UIMessage[]),
+            abortSignal: request.signal,
+          });
+
+          return result.toUIMessageStreamResponse({
+            originalMessages: body.messages as UIMessage[],
+          });
+        }
+
+        // Fallback when GEMINI_API_KEY is not configured yet
+        const lastMsg = (body.messages as UIMessage[]).slice(-1)[0];
+        const lastUserText =
+          lastMsg?.parts
+            ?.filter((p) => p.type === "text")
+            .map((p) => ("text" in p ? (p.text as string) : ""))
+            .join(" ") || "";
+
+        const responseText = buildFallbackResponse(product, lastUserText);
+
+        const stream = createUIMessageStream({
+          execute: async ({ writer }) => {
+            writer.write({ type: "start" });
+            writer.write({ type: "text-start", id: "t1" });
+
+            for (let i = 0; i < responseText.length; i += 12) {
+              writer.write({
+                type: "text-delta",
+                id: "t1",
+                delta: responseText.slice(i, i + 12),
+              });
+              await new Promise((r) => setTimeout(r, 15));
+            }
+
+            writer.write({ type: "text-end", id: "t1" });
+            writer.write({ type: "finish" });
           },
         });
 
-        return withLovableAiGatewayRunIdHeader(
-          result.toUIMessageStreamResponse({
-            originalMessages: body.messages as UIMessage[],
-            headers: getLovableAiGatewayResponseHeaders(undefined, {
-              ...(initialRunId ? { "X-Lovable-AIG-Run-ID": initialRunId } : {}),
-            }),
-          }),
-          runIdFetch,
-        );
+        return createUIMessageStreamResponse({ stream });
       },
     },
   },

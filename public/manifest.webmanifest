@@ -1,0 +1,41 @@
+{
+  "id": "/",
+  "name": "ח. סבן חומרי בניין | שילוט חכם ודלפק",
+  "short_name": "ח. סבן 1994",
+  "description": "אפליקציית PWA לקוחות וקבלנים — מפרטים טכניים, מחשבון כמויות, ייעוץ נועה AI ושידור הזמנות מהיר לדלפק",
+  "start_url": "https://saban-smart-signage.vercel.app/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "dir": "rtl",
+  "lang": "he",
+  "categories": ["business", "productivity", "shopping"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
