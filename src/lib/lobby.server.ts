@@ -85,9 +85,14 @@ function rowToProduct(headers: string[], row: GvizRow): Product | null {
     salePrice: num(get(["מחיר קבלן (₪)", "salePrice", "מחיר קבלן"])),
     discountTag: get(["תגית מבצע", "discountTag", "מבצע"]) || undefined,
     marketingPhrase: get(["הערת כיסוי", "marketingPhrase", "תיאור קצר"]) || `${name} — אספקה בסבן`,
-    image:
-      get(["קישור לתמונה", "image", "תמונה"]) ||
-      "https://saban-smart-signage.vercel.app/assets/product-adhesive-bag.jpg",
+    image: (() => {
+      const raw = get(["קישור לתמונה", "image", "תמונה"]);
+      if (!raw) return "/assets/product-adhesive-bag.jpg";
+      if (raw.includes("saban-smart-signage.vercel.app/assets/")) {
+        return raw.replace(/https?:\/\/saban-smart-signage\.vercel\.app\/assets\//, "/assets/");
+      }
+      return raw;
+    })(),
     mediaUrl:
       get(["קישור לסרטון הדרכה (YouTube)", "mediaUrl", "סרטון"]) ||
       "https://www.youtube.com/embed/ScMzIvxBSi4",
@@ -115,17 +120,30 @@ async function fetchFromAppsScript(): Promise<Product[] | null> {
     process.env.GOOGLE_SHEETS_WEBHOOK_URL ||
     "https://script.google.com/macros/s/AKfycbxxMuFP5evxDx8vxd3BfCQgx73H88KTOB87AzbiCAEx69UVJE1qmoCMyF9KM9qljvAX/exec";
   try {
-    const res = await fetch(`${webhookUrl}?action=products`, { redirect: "follow" });
+    const res = await fetch(`${webhookUrl}?action=products`, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(3500),
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as { success?: boolean; products?: Product[] };
     if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-      return data.products.map((p) => ({
-        ...p,
-        isActive: p.isActive !== false,
-        displayDuration: p.displayDuration || 25,
-        substrates: Array.isArray(p.substrates) ? p.substrates : [],
-        companions: Array.isArray(p.companions) ? p.companions : [],
-      }));
+      return data.products.map((p) => {
+        let image = p.image || "/assets/product-adhesive-bag.jpg";
+        if (image.includes("saban-smart-signage.vercel.app/assets/")) {
+          image = image.replace(
+            /https?:\/\/saban-smart-signage\.vercel\.app\/assets\//,
+            "/assets/",
+          );
+        }
+        return {
+          ...p,
+          image,
+          isActive: p.isActive !== false,
+          displayDuration: p.displayDuration || 25,
+          substrates: Array.isArray(p.substrates) ? p.substrates : [],
+          companions: Array.isArray(p.companions) ? p.companions : [],
+        };
+      });
     }
   } catch (err) {
     console.warn("Could not fetch products from Apps Script:", err);
@@ -145,7 +163,10 @@ async function fetchFromSheets(): Promise<Product[] | null> {
     SHEET_TAB,
   )}`;
   try {
-    const res = await fetch(url, { headers: { accept: "text/plain" } });
+    const res = await fetch(url, {
+      headers: { accept: "text/plain" },
+      signal: AbortSignal.timeout(3500),
+    });
     if (!res.ok) return null;
     const text = await res.text();
     const start = text.indexOf("{");

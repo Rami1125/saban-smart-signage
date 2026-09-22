@@ -226,7 +226,11 @@ export const Route = createFileRoute("/api/chat")({
         let sheetCatalog: Product[] = [];
         try {
           const { getLobbyProductsCached } = await import("@/lib/lobby.server");
-          const cached = await getLobbyProductsCached();
+          const cachedPromise = getLobbyProductsCached();
+          const timeoutPromise = new Promise<{ products: Product[] }>((resolve) =>
+            setTimeout(() => resolve({ products: [] }), 2500),
+          );
+          const cached = await Promise.race([cachedPromise, timeoutPromise]);
           sheetCatalog = cached.products;
           product = findProduct(sheetCatalog, body.sku);
         } catch {
@@ -236,17 +240,28 @@ export const Route = createFileRoute("/api/chat")({
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
         if (apiKey) {
-          const google = createGoogleGenerativeAI({ apiKey });
-          const result = streamText({
-            model: google("gemini-2.5-flash"),
-            system: buildSystemPrompt(product, sheetCatalog),
-            messages: await convertToModelMessages(body.messages as UIMessage[]),
-            abortSignal: request.signal,
-          });
+          try {
+            const google = createGoogleGenerativeAI({ apiKey });
+            const modelMessages = await convertToModelMessages(body.messages as UIMessage[]);
+            const result = streamText({
+              model: google("gemini-3.6-flash"),
+              system: buildSystemPrompt(product, sheetCatalog),
+              messages: modelMessages,
+              abortSignal: request.signal,
+            });
 
-          return result.toUIMessageStreamResponse({
-            originalMessages: body.messages as UIMessage[],
-          });
+            return result.toUIMessageStreamResponse({
+              originalMessages: body.messages as UIMessage[],
+              onError: (err) => {
+                console.error("AI stream error:", err);
+              },
+            });
+          } catch (aiErr) {
+            console.warn(
+              "Gemini streamText failed, falling back to local coordinator engine:",
+              aiErr,
+            );
+          }
         }
 
         // Fallback when GEMINI_API_KEY is not configured yet

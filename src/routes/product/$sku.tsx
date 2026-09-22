@@ -417,6 +417,12 @@ function ProductPage() {
             <img
               src={product.image}
               alt={product.name}
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                if (!target.src.includes("/assets/product-adhesive-bag.jpg")) {
+                  target.src = "/assets/product-adhesive-bag.jpg";
+                }
+              }}
               className="max-h-full max-w-full object-contain drop-shadow-md transition-transform duration-300 hover:scale-105"
             />
             {product.discountTag && (

@@ -577,9 +577,25 @@ ${itemsText}
             <Shimmer className="px-1 text-sm">הסדרן הדיגיטלי בודק זמינות מלאי ומחשב...</Shimmer>
           )}
           {error && (
-            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error.message}
-            </p>
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive space-y-2">
+              <p className="font-semibold">חלה שגיאה זמנית בהתחברות לסדרן הדיגיטלי.</p>
+              <p className="text-[11px] text-muted-foreground">
+                ניתן לשלוח הודעה נוספת או להעביר את פרטי ההזמנה ישירות לוואטסאפ של מוקד סבן.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="secondary" className="h-7 text-xs font-semibold" asChild>
+                  <a
+                    href={whatsappLink(
+                      `שלום מוקד סבן, אני מעוניין בתיאום איסוף עצמי של ${product.name} (מק״ט ${product.sku}).`,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    מעבר לוואטסאפ מוקד סבן 📲
+                  </a>
+                </Button>
+              </div>
+            </div>
           )}
         </ConversationContent>
         <ConversationScrollButton />

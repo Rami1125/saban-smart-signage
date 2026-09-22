@@ -343,6 +343,12 @@ export function Index() {
                     <img
                       src={currentProduct.image}
                       alt={currentProduct.name}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (!target.src.includes("/assets/product-adhesive-bag.jpg")) {
+                          target.src = "/assets/product-adhesive-bag.jpg";
+                        }
+                      }}
                       className="max-h-72 w-auto object-contain drop-shadow-xl transition-transform duration-500 hover:scale-105"
                     />
                     {currentProduct.discountTag && (
