@@ -1,3 +1,9 @@
+// ============================================================================
+// File: src/components/noa/NoaChat.tsx
+// Version: 2.5.0 (SabanOS Smart Signage — High-Contrast UI & Dynamic Click & Collect)
+// Maintained & Upgraded: 2026-09-22
+// ============================================================================
+
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { MessageCircle, Plus, Send, Trash2, X, Headset, Maximize2, Minimize2 } from "lucide-react";
@@ -9,7 +15,7 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import { MessageResponse } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputFooter,
@@ -95,8 +101,8 @@ export type SelfPickupOrder = {
 function parsePickupJson(text: string): SelfPickupOrder | null {
   try {
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch && jsonMatch[1]) {
-      const parsed = JSON.parse(jsonMatch[1]);
+    if (jsonMatch && jsonMatch) {
+      const parsed = JSON.parse(jsonMatch);
       if (parsed.orderType === "SELF_PICKUP" && Array.isArray(parsed.items)) {
         return parsed as SelfPickupOrder;
       }
@@ -121,8 +127,8 @@ function stripJsonFromText(text: string): string {
 function parseOrder(text: string): ParsedOrder | null {
   const line = text.split("\n").find((l) => l.includes("הזמנה:"));
   if (!line) return null;
-  const quantity = Number(line.match(/כמות:\s*(\d+(?:\.\d+)?)/)?.[1] ?? "");
-  const cost = Number(line.match(/עלות מוערכת:\s*([\d.,]+)/)?.[1]?.replace(/,/g, "") ?? "");
+  const quantity = Number(line.match(/כמות:\s*(\d+(?:\.\d+)?)/)?. ?? "");
+  const cost = Number(line.match(/עלות מוערכת:\s*([\d.,]+)/)?.?.replace(/,/g, "") ?? "");
   if (!Number.isFinite(quantity) || quantity <= 0) return null;
   return { quantity, cost: Number.isFinite(cost) ? cost : 0 };
 }
@@ -215,7 +221,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
             type="button"
             onClick={() => setOpen(true)}
             aria-label="פתיחת שיחה עם נועה - נציגת דלפק ראשית"
-            className="animate-noa-pulse relative flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-95 ring-2 ring-primary/40 overflow-hidden"
+            className="animate-noa-pulse relative flex size-16 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-2xl transition-transform active:scale-95 ring-4 ring-amber-300/60 overflow-hidden"
           >
             <img
               src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
@@ -228,28 +234,28 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
               }}
               className="size-full object-cover"
             />
-            <span className="hidden size-full items-center justify-center bg-primary text-primary-foreground">
+            <span className="hidden size-full items-center justify-center bg-amber-400 text-slate-950 font-bold text-sm">
               <Headset className="size-7" />
             </span>
-            <span className="absolute bottom-1 right-1 size-3.5 rounded-full bg-emerald-500 border-2 border-white" />
+            <span className="absolute bottom-1 right-1 size-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-xs" />
           </button>
           <div
             onClick={() => setOpen(true)}
             role="button"
             tabIndex={0}
-            style={{ backgroundColor: "#e0e7f2" }}
-            className="animate-noa-pop max-w-[15.5rem] rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-card-foreground shadow-2xl border-2 border-primary/40 cursor-pointer hover:border-primary transition-all backdrop-blur-none"
+            style={{ backgroundColor: "#0f172a" }}
+            className="animate-noa-pop max-w-[16rem] rounded-2xl rounded-bl-xs px-3.5 py-2.5 text-white shadow-2xl border-2 border-amber-400 cursor-pointer hover:border-amber-300 transition-all select-none"
           >
             <div className="flex items-center justify-between gap-1 mb-1">
-              <span className="font-extrabold text-[13px] text-primary flex items-center gap-1">
+              <span className="font-extrabold text-[13px] text-amber-300 flex items-center gap-1">
                 <span>נועה ❤️</span>
-                <span className="text-[11px] font-bold text-foreground">דלפק ראשית</span>
+                <span className="text-[11px] font-bold text-slate-200">דלפק ראשית</span>
               </span>
-              <span className="rounded-md bg-primary/20 text-foreground font-black text-[10px] px-1.5 py-0.5">
+              <span className="rounded-md bg-amber-400 text-slate-950 font-black text-[10px] px-1.5 py-0.5 shadow-xs">
                 סבן
               </span>
             </div>
-            <p className="text-foreground font-bold text-xs leading-normal opacity-100">
+            <p className="text-slate-100 font-bold text-xs leading-normal opacity-100">
               תיאום איסוף עצמי מהיר (Click & Collect) בסניפי החרש 4 והתלמיד 6.
             </p>
           </div>
@@ -265,8 +271,8 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
               : "inset-x-2 bottom-2 h-[85vh] max-h-[44rem] sm:inset-x-auto sm:left-6 sm:w-[28rem]",
           )}
         >
-          <header className="flex items-center gap-2 border-b bg-signage px-3.5 py-2.5 text-signage-foreground">
-            <div className="relative flex size-10 items-center justify-center rounded-full bg-primary/20 ring-2 ring-primary/40 overflow-hidden shrink-0">
+          <header className="flex items-center gap-2 border-b bg-slate-900 px-3.5 py-2.5 text-white">
+            <div className="relative flex size-10 items-center justify-center rounded-full bg-amber-400/20 ring-2 ring-amber-400 overflow-hidden shrink-0">
               <img
                 src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
                 alt="נועה | נציגת דלפק ראשית"
@@ -278,13 +284,13 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
                 }}
                 className="size-full object-cover"
               />
-              <span className="hidden size-full items-center justify-center bg-primary text-primary-foreground font-bold text-xs">
+              <span className="hidden size-full items-center justify-center bg-amber-400 text-slate-950 font-black text-sm">
                 👷‍♀️
               </span>
               <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border border-white" />
             </div>
-            <div className="flex-1 leading-tight">
-              <p className="text-sm font-black flex items-center gap-1.5">
+            <div className="flex-1 leading-tight text-right">
+              <p className="text-sm font-black text-white flex items-center gap-1.5">
                 <span>נועה | נציגת דלפק ראשית</span>
                 <span className="text-xs">❤️</span>
               </p>
@@ -299,7 +305,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
               onClick={() => setIsExpanded((prev) => !prev)}
               aria-label={isExpanded ? "הקטנת חלון" : "הרחבת חלון צ'אט"}
               title={isExpanded ? "הקטן חלון" : "הרחב חלון צ'אט"}
-              className="text-signage-foreground hover:bg-signage-muted"
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
             >
               {isExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
             </Button>
@@ -308,7 +314,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
               size="icon-sm"
               onClick={() => setShowThreads((value) => !value)}
               aria-label="רשימת שיחות"
-              className="text-signage-foreground hover:bg-signage-muted"
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
             >
               <MessageCircle className="size-4" />
             </Button>
@@ -317,7 +323,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
               size="icon-sm"
               onClick={createThread}
               aria-label="שיחה חדשה"
-              className="text-signage-foreground hover:bg-signage-muted"
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
             >
               <Plus className="size-4" />
             </Button>
@@ -326,7 +332,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
               size="icon-sm"
               onClick={() => setOpen(false)}
               aria-label="סגירה"
-              className="text-signage-foreground hover:bg-signage-muted"
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
             >
               <X className="size-4" />
             </Button>
@@ -339,12 +345,12 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
                   key={thread.id}
                   className={cn(
                     "flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs",
-                    thread.id === activeId ? "bg-primary/25 font-semibold" : "hover:bg-accent",
+                    thread.id === activeId ? "bg-amber-400/20 font-bold text-amber-900 dark:text-amber-300" : "hover:bg-accent",
                   )}
                 >
                   <button
                     type="button"
-                    className="flex-1 truncate text-right"
+                    className="flex-1 truncate text-right font-medium"
                     onClick={() => {
                       setActiveId(thread.id);
                       setShowThreads(false);
@@ -591,7 +597,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
 
   return (
     <>
-      <Conversation className="flex-1">
+      <Conversation className="flex-1 bg-slate-50/70 dark:bg-slate-950/40">
         <ConversationContent className="gap-3 px-3 py-3">
           {messages.length === 0 && (
             <div className="space-y-3">
@@ -641,7 +647,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                   <button
                     type="button"
                     onClick={() => void submit("אני מתכנן להגיע לסניף החרש 4 (מגרש ראשי)")}
-                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-primary hover:bg-primary/5 transition-all shadow-xs"
+                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-amber-500 hover:bg-amber-50/20 transition-all shadow-xs"
                   >
                     <span className="font-bold text-foreground text-xs">
                       1️⃣ סניף החרש 4 (מגרש העמסות ראשי)
@@ -653,7 +659,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                   <button
                     type="button"
                     onClick={() => void submit("אני מתכנן להגיע לסניף התלמיד 6 (חנות התלמיד 6 )")}
-                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-primary hover:bg-primary/5 transition-all shadow-xs"
+                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-amber-500 hover:bg-amber-50/20 transition-all shadow-xs"
                   >
                     <span className="font-bold text-foreground text-xs">
                       2️⃣ סניף התלמיד 6 (חנות וגבס)
@@ -671,21 +677,45 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
             if (!rawText) return null;
             const text = stripJsonFromText(rawText);
             if (!text) return null;
+
+            const isUser = message.role === "user";
+
             return (
-             <Message from={message.role} key={message.id}>
-                <MessageContent
-                  className={cn(
-                    "text-sm whitespace-pre-line leading-relaxed rounded-2xl shadow-xs",
-                    message.role === "user"
-                      ? "bg-amber-400 text-slate-950 font-bold border border-amber-500/80 px-4 py-2.5 shadow-sm"
-                      : "bg-slate-100 border border-slate-200/90 px-4 py-3 text-slate-900 font-medium",
-                  )}
-                >
-                  <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_strong]:font-black [&_strong]:text-foreground [&_li]:font-medium [&_img]:rounded-xl [&_img]:border [&_img]:border-border [&_img]:shadow-md [&_img]:my-2.5 [&_img]:max-h-56 [&_img]:w-auto [&_img]:object-contain [&_img]:bg-white [&_img]:p-1.5">
-                    {text}
-                  </MessageResponse>
-                </MessageContent>
-              </Message>
+              <div
+                key={message.id}
+                className={cn("flex w-full my-1.5", isUser ? "justify-start" : "justify-end")}
+              >
+                {isUser ? (
+                  // בועת לקוח - עיצוב צהוב סבן מובטח ללא תלות ברקע כהה
+                  <div
+                    style={{
+                      backgroundColor: "#f59e0b",
+                      color: "#020617",
+                    }}
+                    className="max-w-[85%] rounded-2xl rounded-tr-xs px-4 py-2.5 shadow-md border-2 border-amber-600/40 text-slate-950 font-bold text-sm leading-relaxed"
+                  >
+                    <p
+                      className="whitespace-pre-line m-0 font-bold select-text"
+                      style={{ color: "#020617" }}
+                    >
+                      {text}
+                    </p>
+                  </div>
+                ) : (
+                  // בועת נועה - עיצוב דלפק לבן ונקי עם פונט חד, קריא וניגודיות מלאה
+                  <div
+                    style={{
+                      backgroundColor: "#ffffff",
+                      color: "#0f172a",
+                    }}
+                    className="max-w-[92%] rounded-2xl rounded-tl-xs px-4 py-3 shadow-sm border border-slate-200 text-slate-900 text-sm leading-relaxed"
+                  >
+                    <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_p]:text-slate-900 [&_strong]:font-black [&_strong]:text-slate-950 [&_li]:font-medium [&_li]:text-slate-900 [&_img]:rounded-xl [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-md [&_img]:my-2.5 [&_img]:max-h-56 [&_img]:w-auto [&_img]:object-contain [&_img]:bg-white [&_img]:p-1.5">
+                      {text}
+                    </MessageResponse>
+                  </div>
+                )}
+              </div>
             );
           })}
           {busy && (
@@ -722,10 +752,10 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
       {pickupOrder && (
         <div className="space-y-2.5 border-t bg-accent/80 p-3 shadow-lg">
           <div className="flex items-center justify-between">
-            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
+            <span className="rounded-full bg-amber-400 text-slate-950 px-2 py-0.5 text-[11px] font-black shadow-xs">
               📦 כרטיס איסוף עצמי מוכן
             </span>
-            <span className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-[11px] font-bold text-muted-foreground">
               {pickupOrder.status || "ממתין לליקוט"}
             </span>
           </div>
@@ -738,7 +768,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                   ? "התלמיד 6 (אולם גבס)"
                   : "החרש 4 (מגרש ראשי)"}
               </span>
-              <span className="text-muted-foreground">הגעה: {pickupOrder.estimatedArrival}</span>
+              <span className="text-muted-foreground font-bold">הגעה: {pickupOrder.estimatedArrival}</span>
             </div>
             <div className="flex justify-between text-muted-foreground text-[11px]">
               <span>
@@ -816,7 +846,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
           <div className="flex gap-2">
             <Button
               size="sm"
-              className="flex-1 font-bold text-xs"
+              className="flex-1 font-bold text-xs bg-amber-400 hover:bg-amber-500 text-slate-950"
               onClick={() => void dispatchPickup(pickupOrder)}
             >
               שדר כרטיס לדלפק 🚀
