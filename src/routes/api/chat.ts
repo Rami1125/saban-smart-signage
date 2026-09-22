@@ -1,167 +1,985 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createFileRoute } from "@tanstack/react-router";
+// ============================================================================
+// File: src/components/noa/NoaChat.tsx
+// Version: 2.6.0 (SabanOS Smart Signage — High-Contrast UI & Quick Action Decision Tree)
+// Maintained & Upgraded: 2026-09-22
+// ============================================================================
+
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import {
-  convertToModelMessages,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-  streamText,
-  type UIMessage,
-} from "ai";
+  MessageCircle,
+  Plus,
+  Send,
+  Trash2,
+  X,
+  Headset,
+  Maximize2,
+  Minimize2,
+  Sparkles,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
-import { effectivePrice, findProduct, type Product } from "@/lib/products";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import { MessageResponse } from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+} from "@/components/ai-elements/prompt-input";
+import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Button } from "@/components/ui/button";
+import { dispatchToCounter, whatsappLink } from "@/lib/counter-dispatch";
+import { dispatchDualPersistence } from "@/lib/dual-storage";
+import { playLocationChime } from "@/lib/location-chime";
+import { effectivePrice, type Product } from "@/lib/products";
+import { cn } from "@/lib/utils";
 
-type ChatRequestBody = { messages?: unknown; sku?: unknown };
+type Thread = {
+  id: string;
+  title: string;
+  updatedAt: number;
+  messages: UIMessage[];
+};
 
-const WHATSAPP = "+972508860896";
+const STORAGE_KEY = "saban.noa.threads.v1";
 
-function productBrief(product: Product): string {
-  return [
-    `מק״ט: ${product.sku}`,
-    `שם: ${product.name} (${product.brand})`,
-    `קטגוריה: ${product.category}`,
-    `מחירון: ${product.price} ₪ ל${product.unitLabel}`,
-    product.salePrice ? `מחיר קבלן/מבצע: ${product.salePrice} ₪` : "",
-    `אריזה: ${product.unitWeight}`,
-    product.unitsPerPallet ? `יחידות במשטח: ${product.unitsPerPallet}` : "",
-    product.palletDeposit ? `פקדון משטח: ${product.palletDeposit}` : "",
-    `כושר כיסוי: ${product.coveragePerUnitM2} מ״ר ל${product.unitLabel} — ${product.coverageNote}`,
-    product.openTime ? `זמן פתוח: ${product.openTime}` : "",
-    product.potLife ? `זמן עבודה בדלי: ${product.potLife}` : "",
-    product.dryingTime ? `זמני ייבוש: ${product.dryingTime}` : "",
-    product.mixRatio ? `יחס ערבוב: ${product.mixRatio}` : "",
-    `יישום: ${product.applicationMethod}`,
-    product.standard ? `תקן: ${product.standard}` : "",
-    `מצעים מאושרים: ${product.substrates.join(", ")}`,
-    `מוצרים משלימים מחייבים: ${product.companions
-      .map((c) => `${c.name}${c.sku ? ` (מק״ט ${c.sku})` : ""} — ${c.reason}`)
-      .join(" | ")}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+function newThread(): Thread {
+  return {
+    id: `noa_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+    title: "שיחה חדשה",
+    updatedAt: Date.now(),
+    messages: [],
+  };
 }
 
-function buildSystemPrompt(product: Product | undefined, catalogList: Product[] = []): string {
-  const catalog = catalogList.map((p) => `${p.sku} — ${p.name} (${p.category})`).join("\n");
-  return `# Role & Identity
-שמך: נועה ❤️ | נציגת דלפק ראשית — ח. סבן חומרי בניין (1994) בע״מ.
-פרופיל ותפקיד: את מלווה את הקבלנים ואנשי המקצוע בדלפק המכירות בסניף החרש 4 (המגרש הראשי לחומרים כבדים) ובסניף התלמיד 6 (אולם גבס, צבע ופרזול).
-תפקידך לתאם הזמנות איסוף עצמי מהירות (Click & Collect), לעדכן את הלקוח שההזמנה שלו לוקטה ומוכנה לאיסוף בדלפק, ולהציג תמונות ופרטים טכניים מדויקים ישירות מתוך קטלוג המוצרים.
-את מתקשרת בעברית מקצועית, שירותית, חמה, מהירה ובגובה העיניים. הלקוח לעיתים רושם מהדרך או מתוך אתר בנייה.
+function loadThreads(): Thread[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Thread[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
----
+function saveThreads(threads: Thread[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(threads.slice(0, 20)));
+}
 
-## יכולת מרכזית: הצגת כרטיס מוצר ויזואלי דינמי (Dynamic Product Card)
-בכל פעם שלקוח שואל על מוצר, מתעניין ברכישה, שואל שאלה טכנית או מוסיף פריט להזמנה, חובה עליך להציג את תמונת המוצר הרשמית באמצעות תחביר Markdown:
-\`![שם המוצר](קישור_לתמונה)\`
+function messageText(message: UIMessage): string {
+  return message.parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join("")
+    .trim();
+}
 
-### מאגר קישורי תמונות רשמיות מתוך קטלוג השילוט של סבן:
-1. **סיקה טופ 107 (מק״ט 10701)**:
-   \`![סיקה טופ 107](https://www.ramo.co.il/_next/image?url=https%3A%2F%2Ffsta9bejnq4gsbv5.public.blob.vercel-storage.com%2Fproducts%2Fimage-1780415805788-b0d4nb.png&w=1920&q=80)\`
-2. **סיקה סרם 255 סטארפלקס (מק״ט 19255)**:
-   \`![סיקה סרם 255 סטארפלקס](https://gilar.co.il/wp-content/uploads/2020/03/GLR_MOCKUP_SITE_PICS_013.webp)\`
-3. **טיט לריצוף 181 כרמית מיסטר פיקס (מק״ט 15181)**:
-   \`![טיט לריצוף 181 כרמית מיסטר פיקס](https://www.carmit-mrfix.com/wp-content/uploads/2023/12/%D7%98%D7%99%D7%98-%D7%9C%D7%A8%D7%99%D7%A6%D7%95%D7%A3-181-724x1024.png)\`
-4. **מלט אפור 25 ק״ג נשר (מק״ט 10002)**:
-   \`![מלט אפור 25 ק״ג נשר](https://cdn.prod.website-files.com/64dc5ee93ec6291b90e749a1/651448e928ffb08b62e4afe4_7.webp)\`
-5. **סיקפלקס FC11 תרמיל (מק״ט 15680)**:
-   \`![סיקפלקס FC11](https://sika.scene7.com/is/image/sikacs/au-Sikaflex-11FC-Purform-02198888:1-1?fmt=webp-alpha)\`
-6. **טיח גבס MP75 קנאוף (מק״ט 14075)**:
-   \`![טיח גבס MP75 קנאוף](https://media.knauf.com/a/5EmPWu3sHCqd9fMMW4iZ27?fit=wrap&fmt=webp&hei=400)\`
-7. **רוקבונד שפכטל אמריקאי 28 ק״ג (מק״ט 15090)**:
-   \`![רוקבונד שפכטל אמריקאי 28 ק״ג](https://saban-smart-signage.vercel.app/assets/product-waterproof-pail.jpg)\`
-8. **לוח גבס ירוק 260 טמבור/אורבונד (מק״ט 112260)**:
-   \`![לוח גבס ירוק 260](https://b2b.tambour.co.il/sfsites/c/cms/delivery/media/MCQYV5PDLBJ5HYFCKWKDS74NZNNI)\`
-9. **חול / סומסום שק גדול (מק״טים 11501 / 11511)**:
-   \`![חול / סומסום שק גדול](https://saban-smart-signage.vercel.app/assets/product-adhesive-bag.jpg)\`
+type ParsedOrder = { quantity: number; cost: number };
 
----
+export type SelfPickupItem = {
+  sku: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  unitWeightKg?: number;
+  requiresPalletDeposit?: boolean;
+};
 
-## תחומי התמחות לפי סניפים (חוקי ניתוב מוצרים)
-1. **סניף החרש 4 (מחסן 4 - מגרש ראשי לחומרים כבדים)**:
-   - כתובת: רחוב החרש 4, הוד השרון.
-   - התמחות: חומרי מליטה כבדים (מלט, טיט, דבקים בשקים), אגרגטים (חול, סומסום, מצע, חמרה בבלות ובשקים), בלוקים מכל הסוגים (בטון, פומיס, איטונג), ברזל בניין ורשתות, חומרי איטום צמנטיים ואקריליים, כלי עבודה כבדים.
-2. **סניף התלמיד 6 (מחסן 1 - חנות ואולם גבס, צבע ופרזול)**:
-   - כתובת: רחוב התלמיד 6, הוד השרון.
-   - התמחות: מערכות גבס וקונסטרוקציה (לוחות גבס לבן/ירוק/ורוד/כחול, ניצבים ומסלולים), צבעים ושפכטלים, כלי עבודה ידניים וחשמליים, איטום גמיש (מסטיקים ותרמילים), פרזול וברגים.
+export type SelfPickupOrder = {
+  orderType: "SELF_PICKUP";
+  branch: string;
+  branchAddress: string;
+  customerName: string;
+  customerPhone: string;
+  estimatedArrival: string;
+  vehicleType: string;
+  totalWeightKg?: number;
+  vehicleFeasibility?: string;
+  isWeightMismatch?: boolean;
+  technicalRecommendations?: string[];
+  items: SelfPickupItem[];
+  status: string;
+};
 
-*הערת ניתוב חשובה*: אם לקוח מבקש מוצרים השייכים לשני הסניפים במקביל, הסבירי לו בנימוס על החלוקה והציעי לו לאסוף את הכבדים מהחרש ואת הקלים מהתלמיד, או לרכז בסניף הראשי (החרש).
+function parsePickupJson(text: string): SelfPickupOrder | null {
+  try {
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch && jsonMatch[1]) {
+      const parsed = JSON.parse(jsonMatch[1]);
+      if (parsed.orderType === "SELF_PICKUP" && Array.isArray(parsed.items)) {
+        return parsed as SelfPickupOrder;
+      }
+    }
+    const directMatch = text.match(/\{[\s\S]*"orderType"\s*:\s*"SELF_PICKUP"[\s\S]*\}/);
+    if (directMatch) {
+      const parsed = JSON.parse(directMatch[0]);
+      if (parsed.orderType === "SELF_PICKUP" && Array.isArray(parsed.items)) {
+        return parsed as SelfPickupOrder;
+      }
+    }
+  } catch {
+    //
+  }
+  return null;
+}
 
----
+function stripJsonFromText(text: string): string {
+  return text.replace(/```json[\s\S]*?```/g, "").trim();
+}
 
-## מנוע ידע טכני וחישובי כמויות (Technical Calculator)
-בעת דיון על מוצרים או חישוב כמויות עבור לקוח, פעלי בקפדנות לפי כללי המפתח הבאים:
-1. **סיקה טופ 107 (מק"ט 10701)**:
-   - כושר כיסוי: 12.5 מ"ר לערכה (25 ק"ג) בשתי שכבות.
-   - **חובה להמליץ/להדגיש**: סיקה לטקס SBR (מק"ט 10702) לביצוע רולקות בחיבורי רצפה-קיר, ורשת שריון פיברגלס להטמעה בין השכבות.
-2. **טיט לריצוף 181 (מק"ט 15181 - כרמית מיסטר פיקס 25 ק"ג)**:
-   - כושר כיסוי: כ-5 מ"ר לשק (עובי 5 מ"מ).
-   - **חובה להמליץ/להדגיש**: ספייסרים (מרווחונים) לפוגות ורובה גמישה (צמנטית או אפוקסית) למילוי ואטימת המישקים.
-3. **טיח גבס MP75 (מק"ט 14075 - קנאוף 25 ק"ג)**:
-   - כושר כיסוי: 2.5 מ"ר לשק בעובי 10 מ"מ.
-   - **חובה לוודא/להדגיש**: קיום ויישום פריימר בטונקונטקט (Betonkontakt) על גבי בטון יצוק לפני יישום טיח הגבס.
-4. **לוחות גבס (מק"ט 111260 לבן / מק"ט 112260 ירוק לחות)**:
-   - שטח כל לוח = 3.12 מ"ר (1.20 מטר רוחב × 2.60 מטר אורך).
-   - **מומלץ להציע/להדגיש**: ברגי גבס 25 מ"מ (מק"ט 76206) ומסלולים/ניצבים תואמים (קונסטרוקציה).
+function parseOrder(text: string): ParsedOrder | null {
+  const line = text.split("\n").find((l) => l.includes("הזמנה:"));
+  if (!line) return null;
+  const quantity = Number(line.match(/כמות:\s*(\d+(?:\.\d+)?)/)?.[1] ?? 0);
+  const cost = Number(line.match(/עלות מוערכת:\s*([\d.,]+)/)?.[1]?.replace(/,/g, "") ?? 0);
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  return { quantity, cost: Number.isFinite(cost) ? cost : 0 };
+}
 
----
+type QuickAction = {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  prompt: string;
+  badge?: string;
+};
 
-## בקרת משקל ובטיחות רכב (Weight Feasibility Check)
-**חשבי תמיד את המשקל הכולל של הפריטים בהזמנה:**
-- **עד 300 ק"ג**: מאושר לכל רכב פרטי / מסחרי קל.
-- **300 עד 700 ק"ג**: מתאים לטנדר / מסחרית גדולה (ברלינגו/טרנזיט). לא מורשה ברכב פרטי.
-- **מעל 700 ק"ג או משטח שלם**: דורש טנדר כבד, עגלה נגררת או משאית פתוחה להעמסה עם מלגזה.
-- **התראת אי-התאמה (Safety Alert)**: אם קיים חוסר התאמה בין המשקל הכולל לרכב הלקוח (לדוגמה: לקוח עם רכב פרטי שמזמין 15 שקי מלט במשקל 375 ק"ג, או טנדר קל למשטח של טון), **התריעי מיד בהודעה ברורה**, והציעי לו:
-  1. לפצל את ההזמנה לשני סבבי איסוף ברכב הקיים.
-  2. להגיע עם רכב מתאים (טנדר כבד/נגרר/משאית).
-  3. להזמין הובלת מנוף ישירה מסבן לאתר.
+const QUICK_ACTIONS: QuickAction[] = [
+  {
+    id: "talmid",
+    icon: "🏟️",
+    title: "איסוף מסניף התלמיד 6",
+    subtitle: "גבס, צבע, שפכטל, פרזול וכלי עבודה",
+    prompt: "אני מתכנן להגיע לסניף התלמיד 6 (חנות התלמיד 6 )",
+    badge: "אולם גבס",
+  },
+  {
+    id: "harash",
+    icon: "🏭",
+    title: "איסוף מסניף החרש 4",
+    subtitle: "בלות חול, סומסום, שקי מלט, בלוקים וברזל",
+    prompt: "אני מתכנן להגיע לסניף החרש 4 (מגרש ראשי)",
+    badge: "מגרש ראשי",
+  },
+  {
+    id: "delivery",
+    icon: "🚛",
+    title: "תיאום הובלה / מנוף",
+    subtitle: "משאית מנוף לקומה או חלוקה ישירה לאתר",
+    prompt: "אני מעוניין לתאם הובלה ופריקה באתר",
+    badge: "סידור",
+  },
+  {
+    id: "paint",
+    icon: "🎨",
+    title: "גיוון צבע ממוחשב",
+    subtitle: "התאמת גוונים ממניפות טמבור ונירלט וכמויות",
+    prompt: "אני רוצה להתייעץ על גיוון צבע והתאמת כמויות",
+  },
+  {
+    id: "technical",
+    icon: "💡",
+    title: "ייעוץ ומפרט טכני",
+    subtitle: "חומרי איטום, סיקה, דבקים ושיקום בטון",
+    prompt: "אני צריך ייעוץ ומפרט טכני לבחירת חומרים",
+  },
+];
 
----
+const FALLBACK_PRODUCT: Product = {
+  sku: "GENERAL",
+  name: "ח. סבן - איסוף עצמי מהיר",
+  category: "כללי",
+  basePrice: 0,
+  unitLabel: "יח׳",
+  supplier: "ח. סבן חומרי בניין (1994) בע״מ",
+  stockQuantity: 999,
+  warehouseLocation: "סניף החרש / סניף התלמיד",
+  preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+  description: "תיאום איסוף עצמי מהיר Click & Collect",
+};
 
-## תרחישי עבודה של נועה
+export function NoaChat({ product, screenId }: { product?: Product | null; screenId?: string }) {
+  const currentProduct = product ?? FALLBACK_PRODUCT;
+  const [open, setOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showThreads, setShowThreads] = useState(false);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const bootstrapped = useRef(false);
 
-### תרחיש א׳: תיאום הזמנת איסוף חדשה (Click & Collect)
-1. **בירור סניף מועדף**: **סניף החרש 4** (חומרים כבדים, מליטה, בלוקים, בלות) או **סניף התלמיד 6** (גבס, פרופילים, צבע, פרזול).
-2. **קליטת הפריטים והכמויות**: חישוב כמויות לפי מ״ר במידת הצורך, הצעת מוצרים משלימים, והצגת תמונת המוצר באמצעות תחביר Markdown: \`![שם המוצר](קישור_לתמונה)\`.
-3. **אימות שם הלקוח, טלפון, שעת הגעה וסוג רכב**: בקרת משקל ובטיחות רכב.
-4. **הפקת כרטיס איסוף מסכם ובלוק JSON**.
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    const stored = loadThreads();
+    if (stored.length) {
+      setThreads(stored);
+      setActiveId(stored[0]!.id);
+    } else {
+      const first = newThread();
+      setThreads([first]);
+      setActiveId(first.id);
+      saveThreads([first]);
+    }
+  }, []);
 
-### תרחיש ב׳: התראת "ההזמנה שלך מוכנה בדלפק" (Order Ready Alert)
-כאשר הלקוח פונה לבדוק סטטוס, שואל אם ההזמנה מוכנה או מציין שהוא בדרך לסניף, נועה מודיעה לו בצורה חמה, מקצועית ומזמינה שהמוצרים לוקטו וממתינים לו:
-\`\`\`text
-בוקר אור! 🌞
-ההזמנה שלך מוכנה וממתינה לך בדלפק סניף [החרש 4 / התלמיד 6]!
+  const activeThread = threads.find((t) => t.id === activeId) ?? null;
 
-📦 פירוט הפריטים שהוכנו:
-- [כמות] [שם המוצר] (מק״ט [מספר])
+  const persist = (id: string, messages: UIMessage[]) => {
+    setThreads((prev) => {
+      const next = prev.map((thread) =>
+        thread.id === id
+          ? {
+              ...thread,
+              messages,
+              updatedAt: Date.now(),
+              title:
+                thread.title === "שיחה חדשה" && messages.length
+                  ? messageText(messages[0]!).slice(0, 34) || thread.title
+                  : thread.title,
+            }
+          : thread,
+      );
+      saveThreads(next);
+      return next;
+    });
+  };
 
-![שם המוצר](קישור_לתמונה)
+  const createThread = () => {
+    const thread = newThread();
+    setThreads((prev) => {
+      const next = [thread, ...prev];
+      saveThreads(next);
+      return next;
+    });
+    setActiveId(thread.id);
+    setShowThreads(false);
+  };
 
-📍 הוראות הגעה:
-עם כניסתך למגרש, גש ישירות לדלפק המכירות ומסור את שמך או מספר הטלפון. 
-הצוות בחצר כבר ערוך להעמסה מהירה לרכב. נסיעה טובה!
-\`\`\`
+  const removeThread = (id: string) => {
+    setThreads((prev) => {
+      const next = prev.filter((thread) => thread.id !== id);
+      const ensured = next.length ? next : [newThread()];
+      saveThreads(ensured);
+      if (id === activeId) setActiveId(ensured[0]!.id);
+      return ensured;
+    });
+  };
 
----
+  return (
+    <>
+      {!open && (
+        <div className="fixed bottom-24 left-4 z-50 flex items-end gap-2.5 sm:bottom-6">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="פתיחת שיחה עם נועה - נציגת דלפק ראשית"
+            className="animate-noa-pulse relative flex size-16 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-2xl transition-transform active:scale-95 ring-4 ring-amber-300/60 overflow-hidden"
+          >
+            <img
+              src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
+              alt="נועה נציגת דלפק ראשית"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = "flex";
+              }}
+              className="size-full object-cover"
+            />
+            <span className="hidden size-full items-center justify-center bg-amber-400 text-slate-950 font-bold text-sm">
+              <Headset className="size-7" />
+            </span>
+            <span className="absolute bottom-1 right-1 size-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-xs" />
+          </button>
+          <div
+            onClick={() => setOpen(true)}
+            role="button"
+            tabIndex={0}
+            style={{ backgroundColor: "#0f172a" }}
+            className="animate-noa-pop max-w-[16rem] rounded-2xl rounded-bl-xs px-3.5 py-2.5 text-white shadow-2xl border-2 border-amber-400 cursor-pointer hover:border-amber-300 transition-all select-none"
+          >
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <span className="font-extrabold text-[13px] text-amber-300 flex items-center gap-1">
+                <span>נועה ❤️</span>
+                <span className="text-[11px] font-bold text-slate-200">דלפק ראשית</span>
+              </span>
+              <span className="rounded-md bg-amber-400 text-slate-950 font-black text-[10px] px-1.5 py-0.5 shadow-xs">
+                סבן
+              </span>
+            </div>
+            <p className="text-slate-100 font-bold text-xs leading-normal opacity-100">
+              תיאום איסוף עצמי מהיר (Click & Collect) בסניפי החרש 4 והתלמיד 6.
+            </p>
+          </div>
+        </div>
+      )}
 
-## פורמט כרטיס הסיכום ללקוח (WhatsApp / תצוגה)
-📦 *הזמנה לאיסוף עצמי — ח. סבן*
-*סניף יעד:* [סניף החרש (מחסן 4) / סניף התלמיד (מחסן 1)]
-*שם הלקוח:* [שם מלא]
-*טלפון:* [מספר טלפון]
-*מועד הגעה משוער:* [שעה] | *רכב:* [סוג רכב]
-*משקל כולל משוער:* [X] ק״ג | *אישור רכב:* [תקין למשקל / נדרש פיצול או משאית]
+      {open && (
+        <div
+          className={cn(
+            "animate-noa-pop fixed z-50 flex flex-col overflow-hidden rounded-3xl border bg-card shadow-2xl transition-all duration-300",
+            isExpanded
+              ? "inset-2 sm:inset-6 md:inset-10 lg:inset-x-24 lg:inset-y-12"
+              : "inset-x-2 bottom-2 h-[85vh] max-h-[44rem] sm:inset-x-auto sm:left-6 sm:w-[28rem]",
+          )}
+        >
+          <header className="flex items-center gap-2 border-b bg-slate-900 px-3.5 py-2.5 text-white">
+            <div className="relative flex size-10 items-center justify-center rounded-full bg-amber-400/20 ring-2 ring-amber-400 overflow-hidden shrink-0">
+              <img
+                src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
+                alt="נועה | נציגת דלפק ראשית"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = "none";
+                  const fallback = target.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = "flex";
+                }}
+                className="size-full object-cover"
+              />
+              <span className="hidden size-full items-center justify-center bg-amber-400 text-slate-950 font-black text-sm">
+                👷‍♀️
+              </span>
+              <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border border-white" />
+            </div>
+            <div className="flex-1 leading-tight text-right">
+              <p className="text-sm font-black text-white flex items-center gap-1.5">
+                <span>נועה | נציגת דלפק ראשית</span>
+                <span className="text-xs">❤️</span>
+              </p>
+              <p className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                מחוברת • דלפק מכירות ואיסוף עצמי (סניפי הוד השרון)
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              aria-label={isExpanded ? "הקטנת חלון" : "הרחבת חלון צ'אט"}
+              title={isExpanded ? "הקטן חלון" : "הרחב חלון צ'אט"}
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              {isExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setShowThreads((value) => !value)}
+              aria-label="רשימת שיחות"
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              <MessageCircle className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={createThread}
+              aria-label="שיחה חדשה"
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              <Plus className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setOpen(false)}
+              aria-label="סגירה"
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              <X className="size-4" />
+            </Button>
+          </header>
+
+          {showThreads && (
+            <div className="max-h-44 shrink-0 overflow-y-auto border-b bg-muted/60 px-2 py-2">
+              {threads.map((thread) => (
+                <div
+                  key={thread.id}
+                  className={cn(
+                    "flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs",
+                    thread.id === activeId ? "bg-amber-400/20 font-bold text-amber-900 dark:text-amber-300" : "hover:bg-accent",
+                  )}
+                >
+                  <button
+                    type="button"
+                    className="flex-1 truncate text-right font-medium"
+                    onClick={() => {
+                      setActiveId(thread.id);
+                      setShowThreads(false);
+                    }}
+                  >
+                    {thread.title}
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="מחיקת שיחה"
+                    onClick={() => removeThread(thread.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeThread && (
+            <NoaPane
+              key={activeThread.id}
+              thread={activeThread}
+              product={currentProduct}
+              screenId={screenId}
+              onPersist={persist}
+            />
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function NoaPane({
+  thread,
+  product: rawProduct,
+  screenId,
+  onPersist,
+}: {
+  thread: Thread;
+  product?: Product | null;
+  screenId?: string;
+  onPersist: (id: string, messages: UIMessage[]) => void;
+}) {
+  const product = rawProduct ?? FALLBACK_PRODUCT;
+  const [input, setInput] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: "/api/chat", body: { sku: product.sku } }),
+    [product.sku],
+  );
+
+  const { messages, sendMessage, status, error } = useChat({
+    id: thread.id,
+    messages: thread.messages,
+    transport,
+    onError: (err) => toast.error(err.message || "השירות אינו זמין כרגע"),
+  });
+
+  useEffect(() => {
+    if (messages.length) onPersist(thread.id, messages);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, status, thread.id]);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [status]);
+
+  const busy = status === "submitted" || status === "streaming";
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const lastAssistantText = lastAssistant ? messageText(lastAssistant) : "";
+  const pickupOrder = lastAssistant ? parsePickupJson(lastAssistantText) : null;
+  const order = lastAssistant && !pickupOrder ? parseOrder(lastAssistantText) : null;
+
+  const submit = async (customText?: string) => {
+    const text = (customText ?? input).trim();
+    if (!text || busy) return;
+    setInput("");
+    await sendMessage({ text });
+  };
+
+  const dispatchPickup = async (pOrder: SelfPickupOrder) => {
+    const isTalmid = pOrder.branch.includes("תלמיד") || pOrder.branch.includes("1");
+    const branchName = isTalmid ? "סניף התלמיד (מחסן 1)" : "סניף החרש (מחסן 4)";
+    const warehouse = isTalmid ? "סניף התלמיד (מחסן 1 - גבס וצבע)" : "סניף החרש (מחסן 4 - ראשי)";
+
+    for (const item of pOrder.items) {
+      dispatchToCounter({
+        sku: item.sku || product.sku,
+        productName: item.productName || product.name,
+        quantity: item.quantity,
+        unitLabel: item.unit || product.unitLabel,
+        estimatedCost: item.quantity * effectivePrice(product),
+        note: `איסוף עצמי (${pOrder.customerName}, ${pOrder.estimatedArrival}, ${pOrder.vehicleType}) | ${branchName}`,
+        source: "self_pickup_coordinator",
+        ...(screenId ? { screenId } : {}),
+      });
+
+      await dispatchDualPersistence({
+        sku: item.sku || product.sku,
+        productName: item.productName || product.name,
+        quantity: item.quantity,
+        unitLabel: item.unit || product.unitLabel,
+        unitPrice: effectivePrice(product),
+        estimatedCost: item.quantity * effectivePrice(product),
+        warehouse,
+        branchName,
+        note: `תיאום איסוף עצמי מהיר Click & Collect: ${pOrder.customerName} (${pOrder.customerPhone}) | רכב: ${pOrder.vehicleType} | מועד: ${pOrder.estimatedArrival}`,
+        source: "סדרן דיגיטלי חכם (Click & Collect)",
+        screenId: screenId || "pwa_pickup",
+      });
+    }
+
+    // Log consultation to Google Sheets
+    fetch("/api/sheets-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "log_chat",
+        chat: {
+          sku: pOrder.items[0]?.sku || product.sku,
+          productName: pOrder.items
+            .map((it) => `${it.productName} (${it.quantity} ${it.unit})`)
+            .join(", "),
+          branch: branchName,
+          question: `איסוף עצמי: ${pOrder.customerName}, ${pOrder.customerPhone}, הגעה: ${pOrder.estimatedArrival}, רכב: ${pOrder.vehicleType}`,
+          answer: `סוכם כרטיס איסוף עצמי עם ${pOrder.items.length} פריטים`,
+          quantity: pOrder.items.reduce((acc, cur) => acc + (cur.quantity || 1), 0),
+          cost: 0,
+          dispatched: true,
+        },
+      }),
+    }).catch((err) => console.warn("Could not log chat to sheets:", err));
+
+    playLocationChime("dispatch");
+    toast.success("כרטיס האיסוף שודר בהצלחה לדלפק ולמחסנאים! 🚀", {
+      description: `ההזמנה ממתינה לליקוט ב${branchName}`,
+    });
+  };
+
+  const dispatch = async () => {
+    if (!order) return;
+    dispatchToCounter({
+      sku: product.sku,
+      productName: product.name,
+      quantity: order.quantity,
+      unitLabel: product.unitLabel,
+      estimatedCost: order.cost || order.quantity * effectivePrice(product),
+      note: "סוכם עם הסדרן הדיגיטלי",
+      source: "noa_chat",
+      ...(screenId ? { screenId } : {}),
+    });
+
+    // Dual persistence: Device memory + Google Sheets sync
+    await dispatchDualPersistence({
+      sku: product.sku,
+      productName: product.name,
+      quantity: order.quantity,
+      unitLabel: product.unitLabel,
+      unitPrice: effectivePrice(product),
+      estimatedCost: order.cost || order.quantity * effectivePrice(product),
+      warehouse: product.preferredWarehouse || "סניף החרש (מחסן 4 - ראשי)",
+      branchName: "סניף החרש",
+      note: "סוכם עם הסדרן הדיגיטלי 📦",
+      source: "סדרן דיגיטלי חכם (PWA)",
+      screenId: screenId || "pwa_noa",
+    });
+
+    // Log consultation to Google Sheets
+    fetch("/api/sheets-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "log_chat",
+        chat: {
+          sku: product.sku,
+          productName: product.name,
+          branch: product.preferredWarehouse || "סניף החרש",
+          question: messages
+            .filter((m) => m.role === "user")
+            .map((m) => messageText(m))
+            .slice(-2)
+            .join(" | "),
+          answer: lastAssistant ? messageText(lastAssistant).slice(0, 400) : "",
+          quantity: order.quantity,
+          cost: order.cost,
+          dispatched: true,
+        },
+      }),
+    }).catch((err) => console.warn("Could not log chat to sheets:", err));
+
+    playLocationChime("dispatch");
+    toast.success("ההזמנה שודרה לדלפק וסונכרנה לגליון סבן");
+  };
+
+  const getWhatsappPickupMessage = (pOrder: SelfPickupOrder): string => {
+    const isTalmid = pOrder.branch.includes("תלמיד") || pOrder.branch.includes("1");
+    const branchLabel = isTalmid
+      ? "סניף התלמיד (מחסן 1) — רחוב התלמיד 6, הוד השרון"
+      : "סניף החרש (מחסן 4) — רחוב החרש 4, הוד השרון";
+
+    const itemsText = pOrder.items
+      .map(
+        (it, idx) =>
+          `${idx + 1}. ${it.productName}${it.sku ? ` (מק״ט ${it.sku})` : ""} — כמות: ${it.quantity} ${it.unit}${
+            it.requiresPalletDeposit ? " [כולל פיקדון משטח]" : ""
+          }`,
+      )
+      .join("\n");
+
+    const totalWeight =
+      pOrder.totalWeightKg ??
+      pOrder.items.reduce((acc, it) => {
+        const itemWeight =
+          it.unitWeightKg || (it.sku === "112260" || it.sku === "111260" ? 27 : 25);
+        return acc + (it.quantity || 1) * itemWeight;
+      }, 0);
+
+    const weightStatus =
+      totalWeight <= 300
+        ? "מאושר לכל רכב פרטי / מסחרי קל (עד 300 ק״ג)"
+        : totalWeight <= 700
+          ? "מתאים לטנדר / מסחרית גדולה (300 עד 700 ק״ג)"
+          : "דורש טנדר כבד, עגלה נגררת או משאית פתוחה להעמסה עם מלגזה (מעל 700 ק״ג)";
+
+    return `📦 *הזמנה לאיסוף עצמי — ח. סבן*
+*סניף יעד:* ${branchLabel}
+*שם הלקוח:* ${pOrder.customerName}
+*טלפון:* ${pOrder.customerPhone}
+*מועד הגעה משוער:* ${pOrder.estimatedArrival} | *רכב:* ${pOrder.vehicleType}
+*משקל כולל משוער:* ${totalWeight.toLocaleString()} ק״ג
+*בקרת רכב והעמסה:* ${pOrder.isWeightMismatch ? "⚠️ התראת חריגת משקל לרכב המבוקש!" : "מאושר"}
 
 📋 *פירוט הפריטים לליקוט:*
-1. [שם מוצר / מק"ט] — כמות: [כמות] [יחידה]
-2. [שם מוצר / מק"ט] — כמות: [כמות] [יחידה]
+${itemsText}
 
-![שם המוצר](קישור_לתמונה)
+⚖️ *הנחיות בטיחות רכב:* ${weightStatus}
+${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עולה על כושר הנשיאה של הרכב. מומלץ לפצל סבבים או לתאם משאית.\n" : ""}
+⚠️ *הנחיות הגעה:* הצוות יחל בליקוט המוצרים כדי שיהיו מוכנים בדלפק. עם הגעתך, יש לגשת לדלפק המכירות למסירת מספר הטלפון והסדרת תשלום/תעודה.`;
+  };
 
-⚖️ *בקרת משקל והעמסה:* [הנחיות בטיחות להעמסה לפי מדרגות 300 / 700 ק"ג]
-⚠️ *הנחיות הגעה:* הצוות יחל בליקוט המוצרים כדי שיהיו מוכנים בדלפק. עם הגעתך, יש לגשת לדלפק המכירות למסירת מספר הטלפון והסדרת תשלום/תעודה.
+  return (
+    <>
+      <Conversation className="flex-1 bg-slate-50/70 dark:bg-slate-950/40">
+        <ConversationContent className="gap-3 px-3 py-3">
+          {messages.length === 0 && (
+            <div className="space-y-3">
+              <div
+                style={{ backgroundColor: "#0d3c84" }}
+                className="rounded-2xl p-3.5 text-sm leading-relaxed border border-blue-600 shadow-md text-white"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">❤️</span>
+                  <div>
+                    <p
+                      style={{ color: "#e9f0f9", fontWeight: "bold", fontSize: "16px" }}
+                      className="leading-tight"
+                    >
+                      שלום! כאן נועה
+                    </p>
+                    <p className="text-[11px] text-blue-200 font-semibold">
+                      נציגת דלפק ראשית — ח. סבן חומרי בניין (1994) בע״מ
+                    </p>
+                  </div>
+                </div>
+                <p className="text-white font-medium text-xs leading-relaxed">
+                  אני כאן כדי לתאם עבורך הזמנה לאיסוף עצמי מהיר (&quot;Click & Collect&quot;) לפני
+                  הגעתך למגרש, לוודא זמינות בסניפי הוד השרון ולהכין את הפריטים לליקוט.
+                </p>
+                {product && (
+                  <div className="text-xs font-semibold text-blue-100 mt-2.5 border-t border-blue-400/30 pt-2 flex items-center justify-between gap-2">
+                    <div>
+                      <span>סרקת כרגע: </span>
+                      <strong className="text-white font-black">{product.name}</strong> (מק״ט{" "}
+                      <span className="font-mono">{product.sku}</span>)
+                    </div>
+                    {product.image && (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="size-12 rounded-lg object-contain bg-white/10 p-0.5 border border-white/20"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
 
----
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-amber-500" />
+                    <span>בחר פעולה מהירה להתחלה:</span>
+                  </p>
+                  <span className="text-[10px] text-muted-foreground font-semibold">לחץ לניתוב מהיר</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {QUICK_ACTIONS.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void submit(action.prompt)}
+                      className="group relative flex flex-col items-start rounded-xl border-2 border-border/80 bg-card p-2.5 text-right transition-all hover:border-amber-500 hover:bg-amber-50/20 active:scale-[0.98] shadow-xs"
+                    >
+                      {action.badge && (
+                        <span className="absolute top-2 left-2 rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-black text-amber-900 dark:text-amber-300 border border-amber-400/40">
+                          {action.badge}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-base group-hover:scale-110 transition-transform">
+                          {action.icon}
+                        </span>
+                        <span className="text-xs font-black text-foreground">
+                          {action.title}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-medium text-muted-foreground leading-tight">
+                        {action.subtitle}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {messages.map((message) => {
+            const rawText = messageText(message);
+            if (!rawText) return null;
+            const text = stripJsonFromText(rawText);
+            if (!text) return null;
 
+            const isUser = message.role === "user";
+
+            return (
+              <div
+                key={message.id}
+                className={cn("flex w-full my-1.5", isUser ? "justify-start" : "justify-end")}
+              >
+                {isUser ? (
+                  // בועת לקוח - עיצוב צהוב סבן מובטח ללא תלות ברקע כהה
+                  <div
+                    style={{
+                      backgroundColor: "#f59e0b",
+                      color: "#020617",
+                    }}
+                    className="max-w-[85%] rounded-2xl rounded-tr-xs px-4 py-2.5 shadow-md border-2 border-amber-600/40 text-slate-950 font-bold text-sm leading-relaxed"
+                  >
+                    <p
+                      className="whitespace-pre-line m-0 font-bold select-text"
+                      style={{ color: "#020617" }}
+                    >
+                      {text}
+                    </p>
+                  </div>
+                ) : (
+                  // בועת נועה - עיצוב דלפק לבן ונקי עם פונט חד, קריא וניגודיות מלאה
+                  <div
+                    style={{
+                      backgroundColor: "#ffffff",
+                      color: "#0f172a",
+                    }}
+                    className="max-w-[92%] rounded-2xl rounded-tl-xs px-4 py-3 shadow-sm border border-slate-200 text-slate-900 text-sm leading-relaxed"
+                  >
+                    <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_p]:text-slate-900 [&_strong]:font-black [&_strong]:text-slate-950 [&_li]:font-medium [&_li]:text-slate-900 [&_img]:rounded-xl [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-md [&_img]:my-2.5 [&_img]:max-h-56 [&_img]:w-auto [&_img]:object-contain [&_img]:bg-white [&_img]:p-1.5">
+                      {text}
+                    </MessageResponse>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {busy && (
+            <Shimmer className="px-1 text-sm font-medium">
+              נועה בודקת זמינות מלאי ומחשבת עבורך...
+            </Shimmer>
+          )}
+          {error && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive space-y-2">
+              <p className="font-semibold">חלה שגיאה זמנית בהתחברות לסדרן הדיגיטלי.</p>
+              <p className="text-[11px] text-muted-foreground">
+                ניתן לשלוח הודעה נוספת או להעביר את פרטי ההזמנה ישירות לוואטסאפ של מוקד סבן.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="secondary" className="h-7 text-xs font-semibold" asChild>
+                  <a
+                    href={whatsappLink(
+                      `שלום מוקד סבן, אני מעוניין בתיאום איסוף עצמי של ${product.name} (מק״ט ${product.sku}).`,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    מעבר לוואטסאפ מוקד סבן 📲
+                  </a>
+                </Button>
+              </div>
+            </div>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      {/* Pickup Order Card */}
+      {pickupOrder && (
+        <div className="space-y-2.5 border-t bg-accent/80 p-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="rounded-full bg-amber-400 text-slate-950 px-2 py-0.5 text-[11px] font-black shadow-xs">
+              📦 כרטיס איסוף עצמי מוכן
+            </span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              {pickupOrder.status || "ממתין לליקוט"}
+            </span>
+          </div>
+
+          <div className="rounded-xl border bg-card p-2.5 text-xs space-y-1.5">
+            <div className="flex justify-between border-b pb-1.5 font-medium">
+              <span>
+                סניף:{" "}
+                {pickupOrder.branch.includes("תלמיד")
+                  ? "התלמיד 6 (אולם גבס)"
+                  : "החרש 4 (מגרש ראשי)"}
+              </span>
+              <span className="text-muted-foreground font-bold">הגעה: {pickupOrder.estimatedArrival}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground text-[11px]">
+              <span>
+                לקוח: {pickupOrder.customerName} ({pickupOrder.customerPhone})
+              </span>
+              <span>רכב: {pickupOrder.vehicleType}</span>
+            </div>
+
+            {/* בקרת משקל ובטיחות רכב */}
+            {(() => {
+              const calcWeight =
+                pickupOrder.totalWeightKg ??
+                pickupOrder.items.reduce((acc, it) => {
+                  const itemWeight =
+                    it.unitWeightKg || (it.sku === "112260" || it.sku === "111260" ? 27 : 25);
+                  return acc + (it.quantity || 1) * itemWeight;
+                }, 0);
+              const isMismatch =
+                pickupOrder.isWeightMismatch ||
+                (pickupOrder.vehicleType.includes("פרטי") && calcWeight > 300);
+
+              return (
+                <div
+                  className={`rounded-lg p-2 text-[11px] border ${
+                    isMismatch
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                      : "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span>⚖️ משקל כולל משוער: {calcWeight.toLocaleString()} ק״ג</span>
+                    <span className="text-[10px] uppercase font-mono">
+                      {calcWeight <= 300
+                        ? "רכב פרטי/קל"
+                        : calcWeight <= 700
+                          ? "טנדר/מסחרית"
+                          : "משאית/מלגזה"}
+                    </span>
+                  </div>
+                  {isMismatch && (
+                    <p className="mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                      ⚠️ חריגת משקל לרכב הלקוח! מומלץ לפצל את האיסוף לשני סבבים או לתאם משאית.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="pt-1 text-[11px] space-y-1">
+              <p className="font-semibold text-foreground">פריטים לליקוט:</p>
+              {pickupOrder.items.map((it, idx) => (
+                <div key={idx} className="flex justify-between pr-2 text-muted-foreground">
+                  <span>• {it.productName}</span>
+                  <span className="font-bold text-foreground">
+                    {it.quantity} {it.unit}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* המלצות טכניות ומשלימים */}
+            {pickupOrder.technicalRecommendations &&
+              pickupOrder.technicalRecommendations.length > 0 && (
+                <div className="rounded-lg bg-muted/60 p-2 text-[10px] space-y-0.5 border">
+                  <span className="font-bold text-foreground">💡 דגשים מקצועיים:</span>
+                  {pickupOrder.technicalRecommendations.map((rec, rIdx) => (
+                    <p key={rIdx} className="text-muted-foreground">
+                      {rec}
+                    </p>
+                  ))}
+                </div>
+              )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="flex-1 font-bold text-xs bg-amber-400 hover:bg-amber-500 text-slate-950"
+              onClick={() => void dispatchPickup(pickupOrder)}
+            >
+              שדר כרטיס לדלפק 🚀
+            </Button>
+            <Button size="sm" variant="secondary" className="flex-1 font-bold text-xs" asChild>
+              <a
+                href={whatsappLink(getWhatsappPickupMessage(pickupOrder))}
+                target="_blank"
+                rel="noreferrer"
+              >
+                שליחה בוואטסאפ 📲
+              </a>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Standard single product order banner (fallback) */}
+      {!pickupOrder && order && (
+        <div className="space-y-2 border-t bg-accent/60 px-3 py-2">
+          <p className="text-xs font-semibold">
+            סיכום: {order.quantity} {product.unitLabel} · {product.name}
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1" onClick={dispatch}>
+              שדר לדלפק המכירות
+            </Button>
+            <Button size="sm" variant="secondary" className="flex-1" asChild>
+              <a
+                href={whatsappLink(
+                  `שלום, מעוניין באיסוף עצמי של ${product.name} (מק״ט ${product.sku}) — כמות: ${order.quantity} ${product.unitLabel}.`,
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                שליחה בוואטסאפ
+              </a>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="border-t bg-card px-3 py-2">
+        <PromptInput
+          onSubmit={(_message, event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <PromptInputTextarea
+            ref={textareaRef}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="רשום מוצרים, כמויות, סניף מבוקש או שעת הגעה..."
+          />
+          <PromptInputFooter className="justify-end">
+            <PromptInputSubmit status={status} disabled={!input.trim() || busy}>
+              <Send className="size-4" />
+            </PromptInputSubmit>
+          </PromptInputFooter>
+        </PromptInput>
+      </div>
+    </>
+  );
+}
 ## פורמט פלט מובנה (Developer JSON Block)
 בסוף הודעת הסיכום הסופית, הוסיפי תמיד בלוק JSON תקין במבנה הבא:
 \`\`\`json
