@@ -1,61 +1,44 @@
-import "./lib/error-capture";
+// ============================================================================
+// Server: Express / Bun Local Backend for Webhook & AI SDK Transport
+// Version: 3.0.0
+// ============================================================================
 
-import { consumeLastCapturedError } from "./lib/error-capture";
-import { renderErrorPage } from "./lib/error-page";
+import express, { Request, Response } from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 
-type ServerEntry = {
-  fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
-};
+dotenv.config();
 
-let serverEntryPromise: Promise<ServerEntry> | undefined;
+const app = express();
+const PORT = process.env.PORT || 3001;
 
-async function getServerEntry(): Promise<ServerEntry> {
-  if (!serverEntryPromise) {
-    serverEntryPromise = import("@tanstack/react-start/server-entry").then(
-      (m) => (m.default ?? m) as ServerEntry,
-    );
-  }
-  return serverEntryPromise;
-}
+app.use(cors());
+app.use(express.json());
 
-// h3 swallows in-handler throws into a normal 500 Response with body
-// {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
-async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
-  if (response.status < 500) return response;
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) return response;
+app.get("/api/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok", service: "saban-ai-brain", version: "3.0.0" });
+});
 
-  const body = await response.clone().text();
-  if (!isH3SwallowedErrorBody(body)) return response;
-
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
-  return new Response(renderErrorPage(), {
-    status: 500,
-    headers: { "content-type": "text/html; charset=utf-8" },
-  });
-}
-
-function isH3SwallowedErrorBody(body: string): boolean {
+app.post("/api/chat", async (req: Request, res: Response) => {
   try {
-    const payload = JSON.parse(body) as { unhandled?: unknown; message?: unknown };
-    return payload.unhandled === true && payload.message === "HTTPError";
-  } catch {
-    return false;
+    const { sku } = req.body;
+    res.json({
+      role: "assistant",
+      content: `שלום! כאן נועה מסבן ❤️. קיבלתי את פנייתך לגבי פריט ${sku || "כללי"}. במה נוכל לסייע?`
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-}
+});
 
-export default {
-  async fetch(request: Request, env: unknown, ctx: unknown) {
-    try {
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
-    } catch (error) {
-      console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    }
-  },
-};
+app.post("/api/sheets-sync", async (req: Request, res: Response) => {
+  try {
+    res.json({ status: "success", received: req.body });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`SabanOS Unified Brain Server running on port ${PORT}`);
+});
