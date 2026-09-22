@@ -672,13 +672,13 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
             const text = stripJsonFromText(rawText);
             if (!text) return null;
             return (
-              <Message from={message.role} key={message.id}>
+             <Message from={message.role} key={message.id}>
                 <MessageContent
                   className={cn(
-                    "text-sm whitespace-pre-line leading-relaxed font-medium rounded-2xl shadow-xs",
+                    "text-sm whitespace-pre-line leading-relaxed rounded-2xl shadow-xs",
                     message.role === "user"
-                      ? "bg-primary text-primary-foreground font-bold border border-primary/60 px-4 py-2.5"
-                      : "bg-muted/90 border border-border/80 px-4 py-3 text-foreground font-medium",
+                      ? "bg-amber-400 text-slate-950 font-bold border border-amber-500/80 px-4 py-2.5 shadow-sm"
+                      : "bg-slate-100 border border-slate-200/90 px-4 py-3 text-slate-900 font-medium",
                   )}
                 >
                   <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_strong]:font-black [&_strong]:text-foreground [&_li]:font-medium [&_img]:rounded-xl [&_img]:border [&_img]:border-border [&_img]:shadow-md [&_img]:my-2.5 [&_img]:max-h-56 [&_img]:w-auto [&_img]:object-contain [&_img]:bg-white [&_img]:p-1.5">
