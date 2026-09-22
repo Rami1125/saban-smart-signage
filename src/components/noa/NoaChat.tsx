@@ -128,7 +128,7 @@ function parseOrder(text: string): ParsedOrder | null {
   const line = text.split("\n").find((l) => l.includes("הזמנה:"));
   if (!line) return null;
   const quantity = Number(line.match(/כמות:\s*(\d+(?:\.\d+)?)/)?.[1] ?? 0);
-  const cost = Number(line.match(/עלות מוערכת:\s*([\d.,]+)/)?.?.replace(/,/g, "") ?? "");
+  const cost = Number(line.match(/עלות מוערכת:\s*([\d.,]+)/)?.[1]?.replace(/,/g, "") ?? 0);
   if (!Number.isFinite(quantity) || quantity <= 0) return null;
   return { quantity, cost: Number.isFinite(cost) ? cost : 0 };
 }
