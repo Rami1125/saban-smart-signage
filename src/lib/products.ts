@@ -1,6 +1,6 @@
 // ============================================================================
 // Catalog: Saban Construction Materials Official Catalog & SKUs
-// Version: 3.0.0
+// Version: 3.1.0 (Added normalizeSku, findProduct, and robust lookup)
 // ============================================================================
 
 import { Product } from "@/types";
@@ -19,7 +19,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
     description: "חול ים שטוף תקני לבנייה וטיח",
     unitWeightKg: 800,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "11511",
@@ -33,7 +33,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
     description: "אגרגט סומסום נקי למצע ריצוף וניקוז",
     unitWeightKg: 850,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "11540",
@@ -47,7 +47,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
     description: "מצע מהודק מדורג לתשתיות כבישים ומדרכות",
     unitWeightKg: 900,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "11551",
@@ -61,7 +61,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
     description: "טיט מוכן איכותי לבנייה וחיפוי בלוקים",
     unitWeightKg: 850,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "11570",
@@ -75,7 +75,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
     description: "אדמת חמרה מנופה לגינון ותשתיות פיתוח",
     unitWeightKg: 750,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
 
   // חומרי מליטה ודבקים
@@ -92,7 +92,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     description: "צמנט פורטלנד איכותי CEM II/B-LL 42.5N",
     unitWeightKg: 25,
     requiresPalletDeposit: true,
-    palletCapacity: 40
+    palletCapacity: 40,
   },
   {
     sku: "10009",
@@ -107,7 +107,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     description: "מלט לבן אסתטי לעבודות שחזור ובטון אדריכלי",
     unitWeightKg: 25,
     requiresPalletDeposit: true,
-    palletCapacity: 40
+    palletCapacity: 40,
   },
   {
     sku: "10011",
@@ -122,7 +122,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     description: "תערובת בטון יבשה מוכנה (רק להוסיף מים)",
     unitWeightKg: 25,
     requiresPalletDeposit: true,
-    palletCapacity: 40
+    palletCapacity: 40,
   },
   {
     sku: "19255",
@@ -137,7 +137,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     description: "דבק צמנטי גמיש C2TE-S1 לגרניט פורצלן וריצוף חוץ/פנים",
     unitWeightKg: 25,
     requiresPalletDeposit: true,
-    palletCapacity: 40
+    palletCapacity: 40,
   },
   {
     sku: "10701",
@@ -151,7 +151,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
     description: "מערכת איטום דו-רכיבית צמנטית גמישה לבריכות, מרתפים ומקלחות",
     unitWeightKg: 25,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "10702",
@@ -165,7 +165,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
     description: "אמולסיית לטקס לשיפור הידבקות, איטום רולקות וגמישות מליטה",
     unitWeightKg: 5,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
 
   // גבס ופרופילים
@@ -181,7 +181,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
     description: "לוח גבס סטנדרטי לקירות פנים ומחיצות",
     unitWeightKg: 27,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "112260",
@@ -195,7 +195,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
     description: "לוח גבס עמיד רטיבות לחדרי רחצה ומטבחים",
     unitWeightKg: 28,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "9650300",
@@ -209,7 +209,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
     description: "פרופיל ניצב מגולוון 0.6 מ״מ לקונסטרוקציית גבס",
     unitWeightKg: 2.2,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "8650300",
@@ -223,7 +223,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
     description: "פרופיל מסלול רצפה/תקרה מגולוון 0.6 מ״מ",
     unitWeightKg: 2.0,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "35010",
@@ -237,7 +237,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
     description: "מרק שפכטל פרימיום להחלקה מושלמת של לוחות גבס",
     unitWeightKg: 28,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
   {
     sku: "76206",
@@ -251,7 +251,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
     description: "בורג מושחז תקני לחיבור לוחות גבס לקונסטרוקציה",
     unitWeightKg: 1.5,
-    requiresPalletDeposit: false
+    requiresPalletDeposit: false,
   },
 
   // מק״טי הובלות
@@ -265,7 +265,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     stockQuantity: 99,
     warehouseLocation: "מרכז תפעול החרש 10",
     preferredWarehouse: "סניף החרש 10 (מרכז לוגיסטי והובלות)",
-    description: "הובלת משאית מנוף לפריקה בהוד השרון"
+    description: "הובלת משאית מנוף לפריקה בהוד השרון",
   },
   {
     sku: "18055",
@@ -277,7 +277,7 @@ export const PRODUCTS_CATALOG: Product[] = [
     stockQuantity: 99,
     warehouseLocation: "מרכז תפעול החרש 10",
     preferredWarehouse: "סניף החרש 10 (מרכז לוגיסטי והובלות)",
-    description: "הובלת מנוף מרכזית לאזור השרון הקרוב"
+    description: "הובלת מנוף מרכזית לאזור השרון הקרוב",
   },
   {
     sku: "818050",
@@ -289,12 +289,25 @@ export const PRODUCTS_CATALOG: Product[] = [
     stockQuantity: 99,
     warehouseLocation: "מרכז תפעול החרש 10",
     preferredWarehouse: "סניף החרש 10 (מרכז לוגיסטי והובלות)",
-    description: "הובלת משאית חלוקה / פלטה ללא מנוף"
-  }
+    description: "הובלת משאית חלוקה / פלטה ללא מנוף",
+  },
 ];
 
+export function normalizeSku(sku: string | undefined | null): string {
+  if (!sku) return "";
+  return sku.toString().trim().replace(/\s+/g, "");
+}
+
+export function findProduct(sku: string | undefined | null): Product | undefined {
+  if (!sku) return undefined;
+  const normalized = normalizeSku(sku);
+  return PRODUCTS_CATALOG.find(
+    (p) => normalizeSku(p.sku) === normalized || p.sku.toLowerCase() === normalized.toLowerCase()
+  );
+}
+
 export function getProductBySku(sku: string): Product | undefined {
-  return PRODUCTS_CATALOG.find((p) => p.sku === sku);
+  return findProduct(sku);
 }
 
 export function searchProducts(query: string): Product[] {
@@ -308,6 +321,7 @@ export function searchProducts(query: string): Product[] {
   );
 }
 
-export function effectivePrice(p: Product): number {
+export function effectivePrice(p: Product | null | undefined): number {
+  if (!p) return 0;
   return p.basePrice;
 }
