@@ -1,104 +1,313 @@
-export type Companion = {
-  sku?: string | undefined;
-  name: string;
-  reason: string;
-};
+// ============================================================================
+// Catalog: Saban Construction Materials Official Catalog & SKUs
+// Version: 3.0.0
+// ============================================================================
 
-export type Product = {
-  sku: string;
-  name: string;
-  category: string;
-  brand: string;
-  price: number;
-  salePrice?: number | undefined;
-  discountTag?: string | undefined;
-  marketingPhrase: string;
-  image: string;
-  mediaUrl?: string | undefined;
-  tdsUrl?: string | undefined;
-  unitLabel: string;
-  unitWeight: string;
-  unitsPerPallet?: number | undefined;
-  palletDeposit?: string | undefined;
-  /** שטח מומלץ (מ"ר) לכל יחידה בעובי/יישום התקני */
-  coveragePerUnitM2: number;
-  coverageNote: string;
-  openTime?: string | undefined;
-  potLife?: string | undefined;
-  dryingTime?: string | undefined;
-  mixRatio?: string | undefined;
-  applicationMethod: string;
-  standard?: string | undefined;
-  substrates: string[];
-  companions: Companion[];
-  displayDuration: number;
-  preferredWarehouse?: string | undefined;
-  isActive: boolean;
-};
+import { Product } from "@/types";
 
-/** ניקוי וסניטיזציה מלאה של מק״ט שהתקבל מה-QR או מכתובת ה-URL */
-export function normalizeSku(raw: unknown): string {
-  if (raw === null || raw === undefined) return "";
-  let value = String(raw);
-  try {
-    value = decodeURIComponent(value);
-  } catch {
-    // כתובת לא מקודדת — ממשיכים עם הערך המקורי
+export const PRODUCTS_CATALOG: Product[] = [
+  // אגרגטים ושקים גדולים
+  {
+    sku: "11501",
+    name: "חול שק גדול (בלה)",
+    category: "אגרגטים",
+    basePrice: 120,
+    unitLabel: "בלה",
+    supplier: "ח. סבן מחצבות",
+    stockQuantity: 450,
+    warehouseLocation: "מגרש חרש 4 - עמדת בלות 1",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "חול ים שטוף תקני לבנייה וטיח",
+    unitWeightKg: 800,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "11511",
+    name: "סומסום שק גדול (בלה)",
+    category: "אגרגטים",
+    basePrice: 135,
+    unitLabel: "בלה",
+    supplier: "ח. סבן מחצבות",
+    stockQuantity: 380,
+    warehouseLocation: "מגרש חרש 4 - עמדת בלות 2",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "אגרגט סומסום נקי למצע ריצוף וניקוז",
+    unitWeightKg: 850,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "11540",
+    name: "מצע שק גדול (בלה)",
+    category: "אגרגטים",
+    basePrice: 110,
+    unitLabel: "בלה",
+    supplier: "ח. סבן מחצבות",
+    stockQuantity: 220,
+    warehouseLocation: "מגרש חרש 4 - עמדת בלות 3",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "מצע מהודק מדורג לתשתיות כבישים ומדרכות",
+    unitWeightKg: 900,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "11551",
+    name: "טיט שק גדול (בלה)",
+    category: "אגרגטים",
+    basePrice: 140,
+    unitLabel: "בלה",
+    supplier: "ח. סבן מחצבות",
+    stockQuantity: 190,
+    warehouseLocation: "מגרש חרש 4 - עמדת בלות 4",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "טיט מוכן איכותי לבנייה וחיפוי בלוקים",
+    unitWeightKg: 850,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "11570",
+    name: "חמרה שק גדול (בלה)",
+    category: "אגרגטים",
+    basePrice: 125,
+    unitLabel: "בלה",
+    supplier: "ח. סבן מחצבות",
+    stockQuantity: 150,
+    warehouseLocation: "מגרש חרש 4 - עמדת בלות 5",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "אדמת חמרה מנופה לגינון ותשתיות פיתוח",
+    unitWeightKg: 750,
+    requiresPalletDeposit: false
+  },
+
+  // חומרי מליטה ודבקים
+  {
+    sku: "10002",
+    name: "מלט אפור 25 ק״ג נשר",
+    category: "מליטה ודבקים",
+    basePrice: 24.5,
+    unitLabel: "שק",
+    supplier: "נשר מפעלי מלט ישראליים",
+    stockQuantity: 2800,
+    warehouseLocation: "מחסן מליטה מקורה 4",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "צמנט פורטלנד איכותי CEM II/B-LL 42.5N",
+    unitWeightKg: 25,
+    requiresPalletDeposit: true,
+    palletCapacity: 40
+  },
+  {
+    sku: "10009",
+    name: "מלט לבן 25 ק״ג",
+    category: "מליטה ודבקים",
+    basePrice: 42,
+    unitLabel: "שק",
+    supplier: "נשר",
+    stockQuantity: 650,
+    warehouseLocation: "מחסן מליטה מקורה 4",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "מלט לבן אסתטי לעבודות שחזור ובטון אדריכלי",
+    unitWeightKg: 25,
+    requiresPalletDeposit: true,
+    palletCapacity: 40
+  },
+  {
+    sku: "10011",
+    name: "בטון מוכן 25 ק״ג",
+    category: "מליטה ודבקים",
+    basePrice: 22,
+    unitLabel: "שק",
+    supplier: "תרמוקיר / סבן",
+    stockQuantity: 920,
+    warehouseLocation: "מחסן מליטה מקורה 4",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "תערובת בטון יבשה מוכנה (רק להוסיף מים)",
+    unitWeightKg: 25,
+    requiresPalletDeposit: true,
+    palletCapacity: 40
+  },
+  {
+    sku: "19255",
+    name: "דבק ריצוף סרם 255 (25 ק״ג)",
+    category: "מליטה ודבקים",
+    basePrice: 46,
+    unitLabel: "שק",
+    supplier: "מיסטר פיקס (כרמית)",
+    stockQuantity: 740,
+    warehouseLocation: "מחסן דבקים 4",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "דבק צמנטי גמיש C2TE-S1 לגרניט פורצלן וריצוף חוץ/פנים",
+    unitWeightKg: 25,
+    requiresPalletDeposit: true,
+    palletCapacity: 40
+  },
+  {
+    sku: "10701",
+    name: "איטום צמנטי סיקה טופ 107 (ערכה 25 ק״ג)",
+    category: "מליטה ודבקים",
+    basePrice: 115,
+    unitLabel: "ערכה",
+    supplier: "גילאר סיקה ישראל",
+    stockQuantity: 410,
+    warehouseLocation: "מחסן איטום 4 / מדף 12",
+    preferredWarehouse: "סניף החרש (מחסן 4 - ראשי)",
+    description: "מערכת איטום דו-רכיבית צמנטית גמישה לבריכות, מרתפים ומקלחות",
+    unitWeightKg: 25,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "10702",
+    name: "מוסף הדבקה סיקה לטקס SBR (גלון 5 ק״ג)",
+    category: "מליטה ודבקים",
+    basePrice: 78,
+    unitLabel: "גלון",
+    supplier: "גילאר סיקה ישראל",
+    stockQuantity: 320,
+    warehouseLocation: "סניף 1 התלמיד / מדף כימיה",
+    preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
+    description: "אמולסיית לטקס לשיפור הידבקות, איטום רולקות וגמישות מליטה",
+    unitWeightKg: 5,
+    requiresPalletDeposit: false
+  },
+
+  // גבס ופרופילים
+  {
+    sku: "111260",
+    name: "לוח גבס לבן 260 (120/260 12.5 מ״מ)",
+    category: "גבס ופרופילים",
+    basePrice: 38,
+    unitLabel: "לוח",
+    supplier: "אורבונד / גבס כנף",
+    stockQuantity: 1200,
+    warehouseLocation: "אולם גבס - סניף התלמיד 6",
+    preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
+    description: "לוח גבס סטנדרטי לקירות פנים ומחיצות",
+    unitWeightKg: 27,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "112260",
+    name: "לוח גבס ירוק 260 עמיד בלחות (120/260)",
+    category: "גבס ופרופילים",
+    basePrice: 52,
+    unitLabel: "לוח",
+    supplier: "אורבונד",
+    stockQuantity: 850,
+    warehouseLocation: "אולם גבס - סניף התלמיד 6",
+    preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
+    description: "לוח גבס עמיד רטיבות לחדרי רחצה ומטבחים",
+    unitWeightKg: 28,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "9650300",
+    name: "ניצב 0.6 50/300 ס״מ",
+    category: "גבס ופרופילים",
+    basePrice: 19.5,
+    unitLabel: "יח׳",
+    supplier: "פרופילי סבן",
+    stockQuantity: 1800,
+    warehouseLocation: "מתחם פרופילים - התלמיד 6",
+    preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
+    description: "פרופיל ניצב מגולוון 0.6 מ״מ לקונסטרוקציית גבס",
+    unitWeightKg: 2.2,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "8650300",
+    name: "מסלול 0.6 50/300 ס״מ",
+    category: "גבס ופרופילים",
+    basePrice: 18.5,
+    unitLabel: "יח׳",
+    supplier: "פרופילי סבן",
+    stockQuantity: 1400,
+    warehouseLocation: "מתחם פרופילים - התלמיד 6",
+    preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
+    description: "פרופיל מסלול רצפה/תקרה מגולוון 0.6 מ״מ",
+    unitWeightKg: 2.0,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "35010",
+    name: "שפכטל אמריקאי מוכן 28 ק״ג",
+    category: "גבס ופרופילים",
+    basePrice: 65,
+    unitLabel: "פח",
+    supplier: "טמבור / נירלט",
+    stockQuantity: 520,
+    warehouseLocation: "אולם צבעים - התלמיד 6",
+    preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
+    description: "מרק שפכטל פרימיום להחלקה מושלמת של לוחות גבס",
+    unitWeightKg: 28,
+    requiresPalletDeposit: false
+  },
+  {
+    sku: "76206",
+    name: "ברגי גבס 25 מ״מ שחורים (קופסה 1000 יח׳)",
+    category: "גבס ופרופילים",
+    basePrice: 32,
+    unitLabel: "קופסה",
+    supplier: "סבן פרזול",
+    stockQuantity: 620,
+    warehouseLocation: "מדפי פרזול התלמיד",
+    preferredWarehouse: "סניף התלמיד (מחסן 1 - גבס וצבע)",
+    description: "בורג מושחז תקני לחיבור לוחות גבס לקונסטרוקציה",
+    unitWeightKg: 1.5,
+    requiresPalletDeposit: false
+  },
+
+  // מק״טי הובלות
+  {
+    sku: "18050",
+    name: "הובלת מנוף הוד השרון",
+    category: "הובלות",
+    basePrice: 350,
+    unitLabel: "הובלה",
+    supplier: "ח. סבן הובלות (מרצדס מנוף)",
+    stockQuantity: 99,
+    warehouseLocation: "מרכז תפעול החרש 10",
+    preferredWarehouse: "סניף החרש 10 (מרכז לוגיסטי והובלות)",
+    description: "הובלת משאית מנוף לפריקה בהוד השרון"
+  },
+  {
+    sku: "18055",
+    name: "הובלת מנוף כפר סבא - רעננה",
+    category: "הובלות",
+    basePrice: 420,
+    unitLabel: "הובלה",
+    supplier: "ח. סבן הובלות (מרצדס מנוף)",
+    stockQuantity: 99,
+    warehouseLocation: "מרכז תפעול החרש 10",
+    preferredWarehouse: "סניף החרש 10 (מרכז לוגיסטי והובלות)",
+    description: "הובלת מנוף מרכזית לאזור השרון הקרוב"
+  },
+  {
+    sku: "818050",
+    name: "הובלה ללא פריקה (הוד השרון / פלטה)",
+    category: "הובלות",
+    basePrice: 200,
+    unitLabel: "הובלה",
+    supplier: "ח. סבן הובלות (איסוזו)",
+    stockQuantity: 99,
+    warehouseLocation: "מרכז תפעול החרש 10",
+    preferredWarehouse: "סניף החרש 10 (מרכז לוגיסטי והובלות)",
+    description: "הובלת משאית חלוקה / פלטה ללא מנוף"
   }
-  return value
-    .trim()
-    .replace(/[\u200e\u200f\u202a-\u202e]/g, "")
-    .replace(/^#+/, "")
-    .replace(/^(?:sku|item|product|sika)[-_:]/i, "")
-    .replace(/\s+/g, "");
+];
+
+export function getProductBySku(sku: string): Product | undefined {
+  return PRODUCTS_CATALOG.find((p) => p.sku === sku);
 }
 
-/**
- * איתור מוצר מתוך קטלוג המוצרים של גיליון 📦 קטלוג_מוצרים
- */
-export function findProduct(products: Product[], rawSku: unknown): Product | undefined {
-  if (!products || products.length === 0) return undefined;
-  const sku = normalizeSku(rawSku);
-
-  if (!sku) {
-    return products[0];
-  }
-
-  const lower = sku.toLowerCase();
-  const digitsOnly = sku.replace(/\D/g, "");
-
-  // 1. התאמה מדויקת של מק״ט מנורמל
-  let match = products.find((p) => normalizeSku(p.sku).toLowerCase() === lower);
-  if (match) return match;
-
-  // 2. התאמה נומרית תוך הסרת אפסים מובילים ('19255' מול 19255 מול '0019255')
-  match = products.find(
-    (p) => normalizeSku(p.sku).replace(/^0+/, "") === sku.replace(/^0+/, "") && sku !== "",
-  );
-  if (match) return match;
-
-  // 3. התאמת ספרות בלבד אם קיימות לפחות 3 ספרות
-  if (digitsOnly && digitsOnly.length >= 3) {
-    match = products.find((p) => {
-      const pDigits = normalizeSku(p.sku).replace(/\D/g, "");
-      return pDigits === digitsOnly || (pDigits.length >= 4 && digitsOnly.includes(pDigits));
-    });
-    if (match) return match;
-  }
-
-  // 4. התאמה לפי שם מוצר או מותג
-  match = products.find(
+export function searchProducts(query: string): Product[] {
+  const clean = query.trim().toLowerCase();
+  if (clean.length < 2) return [];
+  return PRODUCTS_CATALOG.filter(
     (p) =>
-      p.name.toLowerCase().includes(lower) ||
-      lower.includes(p.name.toLowerCase()) ||
-      p.brand.toLowerCase() === lower,
+      p.sku.toLowerCase().includes(clean) ||
+      p.name.toLowerCase().includes(clean) ||
+      p.description.toLowerCase().includes(clean)
   );
-  if (match) return match;
-
-  // 5. אם לא נמצאה התאמה מדויקת, מחזיר את המוצר הראשון מקטלוג הגיליון
-  return products[0];
 }
 
-export function effectivePrice(product: Product): number {
-  return product.salePrice ?? product.price;
+export function effectivePrice(p: Product): number {
+  return p.basePrice;
 }
