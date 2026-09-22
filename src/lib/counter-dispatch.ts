@@ -1,48 +1,46 @@
-export type DispatchOrder = {
-  id: string;
+// ============================================================================
+// Counter Dispatch: Route Click & Collect Orders to Warehouse 4 or 1
+// Version: 3.0.0
+// ============================================================================
+
+export interface DispatchCounterParams {
   sku: string;
   productName: string;
   quantity: number;
   unitLabel: string;
   estimatedCost: number;
-  note?: string;
+  note: string;
   source: string;
   screenId?: string;
-  createdAt: number;
-};
+}
 
-const KEY = "saban.counter.dispatch.v1";
+export function whatsappLink(text: string, phone: string = "972504482285"): string {
+  return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
+}
 
-export function readDispatchQueue(): DispatchOrder[] {
-  if (typeof window === "undefined") return [];
+export function dispatchToCounter(params: DispatchCounterParams) {
   try {
-    const raw = window.localStorage.getItem(KEY);
-    const parsed = raw ? (JSON.parse(raw) as DispatchOrder[]) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+    const KEY = "saban_counter_dispatches";
+    const existing = JSON.parse(localStorage.getItem(KEY) || "[]");
+    existing.unshift({
+      ...params,
+      timestamp: new Date().toISOString()
+    });
+    localStorage.setItem(KEY, JSON.stringify(existing.slice(0, 50)));
+  } catch (err) {
+    console.warn("Could not save to local storage:", err);
   }
-}
 
-export function dispatchToCounter(order: Omit<DispatchOrder, "id" | "createdAt">): DispatchOrder {
-  const entry: DispatchOrder = {
-    ...order,
-    id: `ord_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-    createdAt: Date.now(),
-  };
-  if (typeof window !== "undefined") {
-    const next = [entry, ...readDispatchQueue()].slice(0, 50);
-    window.localStorage.setItem(KEY, JSON.stringify(next));
+  if (typeof window !== "undefined" && (window as any).OneSignal) {
+    try {
+      (window as any).OneSignal.push(() => {
+        (window as any).OneSignal.sendSelfNotification(
+          "ח. סבן — הזמנת איסוף חדשה 📦",
+          `הזמנה עבור ${params.productName} (${params.quantity} ${params.unitLabel}) ממתינה לליקוט בדלפק.`
+        );
+      });
+    } catch {
+      //
+    }
   }
-  return entry;
-}
-
-export function clearDispatchQueue() {
-  if (typeof window !== "undefined") window.localStorage.removeItem(KEY);
-}
-
-export const ORDER_WHATSAPP = "972508860896";
-
-export function whatsappLink(message: string): string {
-  return `https://wa.me/${ORDER_WHATSAPP}?text=${encodeURIComponent(message)}`;
 }
