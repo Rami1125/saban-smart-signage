@@ -597,7 +597,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
             <div className="space-y-3">
               <div
                 style={{ backgroundColor: "#0d3c84" }}
-                className="rounded-2xl p-3.5 text-sm leading-relaxed border border-blue-900 shadow-md text-white"
+                className="rounded-2xl p-3.5 text-sm leading-relaxed border border-blue-600 shadow-md text-white"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl">❤️</span>
@@ -628,7 +628,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="size-10 rounded-lg object-contain bg-white/10 p-0.5 border border-white/20"
+                        className="size-12 rounded-lg object-contain bg-white/10 p-0.5 border border-white/20"
                       />
                     )}
                   </div>
@@ -644,15 +644,15 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                     className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-primary hover:bg-primary/5 transition-all shadow-xs"
                   >
                     <span className="font-bold text-foreground text-xs">
-                      1️⃣ סניף החרש 4 (מגרש ראשי)
+                      1️⃣ סניף החרש 4 (מגרש העמסות ראשי)
                     </span>
                     <span className="text-[11px] font-semibold text-muted-foreground">
-                      מליטה, שקים, בלוקים, איטום, ברזל
+                      מלט, שקים, בלוקים, איטום, ברזל
                     </span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => void submit("אני מתכנן להגיע לסניף התלמיד 6 (חנות ואולם גבס)")}
+                    onClick={() => void submit("אני מתכנן להגיע לסניף התלמיד 6 (חנות התלמיד 6 )")}
                     className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-primary hover:bg-primary/5 transition-all shadow-xs"
                   >
                     <span className="font-bold text-foreground text-xs">
