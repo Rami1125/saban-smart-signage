@@ -1,6 +1,6 @@
 // ============================================================================
 // Technical Rules: Engineering Coverage Rates, Weight Feasibility & Waste Margin
-// Version: 3.1.0 (Added checkWeightFeasibility, estimateUnitWeightKg, TECHNICAL_RULES)
+// Version: 3.2.0 (Safe string literals & robust multi-line parsing)
 // ============================================================================
 
 import { Product } from "@/types";
@@ -54,14 +54,14 @@ export function checkWeightFeasibility(
 ): WeightFeasibilityResult {
   const v = vehicleType.toLowerCase();
   let maxWeight = TECHNICAL_RULES.MAX_PRIVATE_VEHICLE_KG;
-  let recommended = "רכב פרטי / מסחרי קל";
+  let recommended = `רכב פרטי / מסחרי קל`;
 
   if (v.includes("טנדר") || v.includes("מסחרית") || v.includes("van") || v.includes("pickup")) {
     maxWeight = TECHNICAL_RULES.MAX_VAN_VEHICLE_KG;
-    recommended = "טנדר / מסחרית גדולה";
+    recommended = `טנדר / מסחרית גדולה`;
   } else if (v.includes("משאית") || v.includes("עגלה") || v.includes("נגרר") || v.includes("truck")) {
     maxWeight = 5000;
-    recommended = "משאית / עגלה נגררת (פריקה במלגזה)";
+    recommended = `משאית / עגלה נגררת (פריקה במלגזה)`;
   }
 
   const feasible = weightKg <= maxWeight;
@@ -74,10 +74,10 @@ export function checkWeightFeasibility(
       : undefined,
     notes:
       weightKg <= TECHNICAL_RULES.MAX_PRIVATE_VEHICLE_KG
-        ? "מאושר לכל רכב פרטי / מסחרי קל (עד 300 ק״ג)"
+        ? `מאושר לכל רכב פרטי / מסחרי קל (עד 300 ק״ג)`
         : weightKg <= TECHNICAL_RULES.MAX_VAN_VEHICLE_KG
-          ? "מתאים לטנדר / מסחרית גדולה (300 עד 700 ק״ג)"
-          : "דורש טנדר כבד, עגלה נגררת או משאית פתוחה להעמסה עם מלגזה (מעל 700 ק״ג)",
+          ? `מתאים לטנדר / מסחרית גדולה (300 עד 700 ק״ג)`
+          : `דורש טנדר כבד, עגלה נגררת או משאית פתוחה להעמסה עם מלגזה (מעל 700 ק״ג)`,
   };
 }
 
@@ -90,11 +90,11 @@ export function calculateCeram255TileAdhesive(netAreaM2: number): CoverageCalcul
     areaWithWasteM2: Number(grossArea.toFixed(1)),
     wasteFactor: STANDARD_WASTE_FACTOR,
     packagesRequired,
-    packageType: "שקי 25 ק״ג סרם 255 (מק״ט 19255)",
+    packageType: `שקי 25 ק״ג סרם 255 (מק״ט 19255)`,
     crossSellRecommendations: [
-      "ספייסרים לפוגות תקניות (2 מ״מ / 3 מ״מ)",
-      "רובה צמנטית גמישה אוטמת",
-      "פריימר מליטה לחיזוק התשתית לפני הריצוף",
+      `ספייסרים לפוגות תקניות (2 מ״מ / 3 מ״מ)`,
+      `רובה צמנטית גמישה אוטמת`,
+      `פריימר מליטה לחיזוק התשתית לפני הריצוף`,
     ],
   };
 }
@@ -108,11 +108,11 @@ export function calculateSikaTop107Waterproofing(netAreaM2: number): CoverageCal
     areaWithWasteM2: Number(grossArea.toFixed(1)),
     wasteFactor: STANDARD_WASTE_FACTOR,
     packagesRequired,
-    packageType: "ערכות 25 ק״ג סיקה טופ 107 (מק״ט 10701)",
+    packageType: `ערכות 25 ק״ג סיקה טופ 107 (מק״ט 10701)`,
     crossSellRecommendations: [
-      "סיקה לטקס SBR (מק״ט 10702) לביצוע רולקות ברדיוס 5 ס״מ בחיבורי רצפה-קיר",
-      "רשת אינטרגלס עמידה באלקלי לשריון שכבת האיטום",
-      "מברשת סיוד/איטום גסה למריחת שכבות שתי וערב",
+      `סיקה לטקס SBR (מק״ט 10702) לביצוע רולקות ברדיוס 5 ס״מ בחיבורי רצפה-קיר`,
+      `רשת אינטרגלס עמידה באלקלי לשריון שכבת האיטום`,
+      `מברשת סיוד/איטום גסה למריחת שכבות שתי וערב`,
     ],
   };
 }
@@ -130,19 +130,17 @@ export function calculateGypsumWall(wallLengthM: number, wallHeightM: number) {
   return {
     wallAreaM2: netArea,
     boardsCount: boardsRequired,
-    boardType: "לוחות גבס 260 (מק״ט 111260 לבן / 112260 ירוק)",
+    boardType: `לוחות גבס 260 (מק״ט 111260 לבן / 112260 ירוק)`,
     studsCount,
-    studType: "ניצב 50/300 0.6 מ״מ (מק״ט 9650300)",
+    studType: `ניצב 50/300 בעובי 0.6 מ״מ (מק״ט 9650300)`,
     tracksCount,
-    6 מ״מ (מק״ט 9650300)",
-    tracksCount,
-    trackType: "מסלול 50/300 0.6 מ״מ (מק״ט 8650300)",
+    trackType: `מסלול 50/300 בעובי 0.6 מ״מ (מק״ט 8650300)`,
     screwsBoxes: Math.ceil(screwsCount / 1000),
-    screwSku: "76206",
+    screwSku: `76206`,
     crossSellRecommendations: [
-      "שפכטל אמריקאי 28 ק״ג (מק״ט 35010)",
-      "סרט נייר שריון או רשת פיברגלס לחיבורים",
-      "צמר סלעים / בידוד אקוסטי לקיר",
+      `שפכטל אמריקאי 28 ק״ג (מק״ט 35010)`,
+      `סרט נייר שריון או רשת פיברגלס לחיבורים`,
+      `צמר סלעים / בידוד אקוסטי לקיר`,
     ],
   };
 }
