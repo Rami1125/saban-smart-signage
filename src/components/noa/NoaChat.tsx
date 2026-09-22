@@ -214,19 +214,37 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
           <button
             type="button"
             onClick={() => setOpen(true)}
-            aria-label="פתיחת סדרן דיגיטלי חכם לאיסוף עצמי"
-            className="animate-noa-pulse flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-95 ring-2 ring-primary/40"
+            aria-label="פתיחת שיחה עם נועה - נציגת דלפק ראשית"
+            className="animate-noa-pulse relative flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-95 ring-2 ring-primary/40 overflow-hidden"
           >
-            <Headset className="size-7" />
+            <img
+              src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
+              alt="נועה נציגת דלפק ראשית"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = "flex";
+              }}
+              className="size-full object-cover"
+            />
+            <span className="hidden size-full items-center justify-center bg-primary text-primary-foreground">
+              <Headset className="size-7" />
+            </span>
+            <span className="absolute bottom-1 right-1 size-3.5 rounded-full bg-emerald-500 border-2 border-white" />
           </button>
           <div
             onClick={() => setOpen(true)}
             role="button"
             tabIndex={0}
-            className="animate-noa-pop max-w-[15.5rem] rounded-2xl rounded-bl-sm bg-card px-3.5 py-2.5 text-card-foreground shadow-2xl border-2 border-primary/40 cursor-pointer hover:border-primary transition-all backdrop-blur-none"
+            style={{ backgroundColor: "#e0e7f2" }}
+            className="animate-noa-pop max-w-[15.5rem] rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-card-foreground shadow-2xl border-2 border-primary/40 cursor-pointer hover:border-primary transition-all backdrop-blur-none"
           >
             <div className="flex items-center justify-between gap-1 mb-1">
-              <span className="font-extrabold text-[13px] text-primary">סדרן דיגיטלי חכם 🏗️</span>
+              <span className="font-extrabold text-[13px] text-primary flex items-center gap-1">
+                <span>נועה ❤️</span>
+                <span className="text-[11px] font-bold text-foreground">דלפק ראשית</span>
+              </span>
               <span className="rounded-md bg-primary/20 text-foreground font-black text-[10px] px-1.5 py-0.5">
                 סבן
               </span>
@@ -248,13 +266,31 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
           )}
         >
           <header className="flex items-center gap-2 border-b bg-signage px-3.5 py-2.5 text-signage-foreground">
-            <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <Headset className="size-5" />
-            </span>
+            <div className="relative flex size-10 items-center justify-center rounded-full bg-primary/20 ring-2 ring-primary/40 overflow-hidden shrink-0">
+              <img
+                src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
+                alt="נועה | נציגת דלפק ראשית"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = "none";
+                  const fallback = target.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = "flex";
+                }}
+                className="size-full object-cover"
+              />
+              <span className="hidden size-full items-center justify-center bg-primary text-primary-foreground font-bold text-xs">
+                👷‍♀️
+              </span>
+              <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border border-white" />
+            </div>
             <div className="flex-1 leading-tight">
-              <p className="text-sm font-black">סדרן דיגיטלי חכם 📦</p>
-              <p className="text-[11px] font-bold text-signage-foreground/80">
-                Click & Collect · ח. סבן חומרי בניין
+              <p className="text-sm font-black flex items-center gap-1.5">
+                <span>נועה | נציגת דלפק ראשית</span>
+                <span className="text-xs">❤️</span>
+              </p>
+              <p className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                מחוברת • דלפק מכירות ואיסוף עצמי (סניפי הוד השרון)
               </p>
             </div>
             <Button
@@ -563,21 +599,39 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                 style={{ backgroundColor: "#0d3c84" }}
                 className="rounded-2xl p-3.5 text-sm leading-relaxed border border-blue-900 shadow-md text-white"
               >
-                <p
-                  style={{ color: "#e9f0f9", fontWeight: "bold", fontSize: "17px" }}
-                  className="mb-1.5"
-                >
-                  שלום! 👋 כאן הסדרן הדיגיטלי של ח. סבן חומרי בניין
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">❤️</span>
+                  <div>
+                    <p
+                      style={{ color: "#e9f0f9", fontWeight: "bold", fontSize: "16px" }}
+                      className="leading-tight"
+                    >
+                      שלום! כאן נועה
+                    </p>
+                    <p className="text-[11px] text-blue-200 font-semibold">
+                      נציגת דלפק ראשית — ח. סבן חומרי בניין (1994) בע״מ
+                    </p>
+                  </div>
+                </div>
                 <p className="text-white font-medium text-xs leading-relaxed">
                   אני כאן כדי לתאם עבורך הזמנה לאיסוף עצמי מהיר (&quot;Click & Collect&quot;) לפני
-                  הגעתך למגרש, לוודא זמינות בסניף המתאים ולהכין את הפריטים לליקוט.
+                  הגעתך למגרש, לוודא זמינות בסניפי הוד השרון ולהכין את הפריטים לליקוט.
                 </p>
                 {product && (
-                  <p className="text-xs font-semibold text-blue-100 mt-2.5 border-t border-blue-400/30 pt-2">
-                    סרקת כרגע: <strong className="text-white font-black">{product.name}</strong>{" "}
-                    (מק״ט <span className="font-mono">{product.sku}</span>)
-                  </p>
+                  <div className="text-xs font-semibold text-blue-100 mt-2.5 border-t border-blue-400/30 pt-2 flex items-center justify-between gap-2">
+                    <div>
+                      <span>סרקת כרגע: </span>
+                      <strong className="text-white font-black">{product.name}</strong> (מק״ט{" "}
+                      <span className="font-mono">{product.sku}</span>)
+                    </div>
+                    {product.image && (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="size-10 rounded-lg object-contain bg-white/10 p-0.5 border border-white/20"
+                      />
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -627,7 +681,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                       : "bg-muted/90 border border-border/80 px-4 py-3 text-foreground font-medium",
                   )}
                 >
-                  <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_strong]:font-black [&_strong]:text-foreground [&_li]:font-medium">
+                  <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_strong]:font-black [&_strong]:text-foreground [&_li]:font-medium [&_img]:rounded-xl [&_img]:border [&_img]:border-border [&_img]:shadow-md [&_img]:my-2.5 [&_img]:max-h-56 [&_img]:w-auto [&_img]:object-contain [&_img]:bg-white [&_img]:p-1.5">
                     {text}
                   </MessageResponse>
                 </MessageContent>
@@ -635,7 +689,9 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
             );
           })}
           {busy && (
-            <Shimmer className="px-1 text-sm">הסדרן הדיגיטלי בודק זמינות מלאי ומחשב...</Shimmer>
+            <Shimmer className="px-1 text-sm font-medium">
+              נועה בודקת זמינות מלאי ומחשבת עבורך...
+            </Shimmer>
           )}
           {error && (
             <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive space-y-2">
