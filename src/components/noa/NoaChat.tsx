@@ -72,6 +72,7 @@ export type SelfPickupItem = {
   productName: string;
   quantity: number;
   unit: string;
+  unitWeightKg?: number;
   requiresPalletDeposit?: boolean;
 };
 
@@ -83,6 +84,10 @@ export type SelfPickupOrder = {
   customerPhone: string;
   estimatedArrival: string;
   vehicleType: string;
+  totalWeightKg?: number;
+  vehicleFeasibility?: string;
+  isWeightMismatch?: boolean;
+  technicalRecommendations?: string[];
   items: SelfPickupItem[];
   status: string;
 };
@@ -487,15 +492,34 @@ function NoaPane({
       )
       .join("\n");
 
+    const totalWeight =
+      pOrder.totalWeightKg ??
+      pOrder.items.reduce((acc, it) => {
+        const itemWeight =
+          it.unitWeightKg || (it.sku === "112260" || it.sku === "111260" ? 27 : 25);
+        return acc + (it.quantity || 1) * itemWeight;
+      }, 0);
+
+    const weightStatus =
+      totalWeight <= 300
+        ? "מאושר לכל רכב פרטי / מסחרי קל (עד 300 ק״ג)"
+        : totalWeight <= 700
+          ? "מתאים לטנדר / מסחרית גדולה (300 עד 700 ק״ג)"
+          : "דורש טנדר כבד, עגלה נגררת או משאית פתוחה להעמסה עם מלגזה (מעל 700 ק״ג)";
+
     return `📦 *הזמנה לאיסוף עצמי — ח. סבן*
 *סניף יעד:* ${branchLabel}
 *שם הלקוח:* ${pOrder.customerName}
 *טלפון:* ${pOrder.customerPhone}
 *מועד הגעה משוער:* ${pOrder.estimatedArrival} | *רכב:* ${pOrder.vehicleType}
+*משקל כולל משוער:* ${totalWeight.toLocaleString()} ק״ג
+*בקרת רכב והעמסה:* ${pOrder.isWeightMismatch ? "⚠️ התראת חריגת משקל לרכב המבוקש!" : "מאושר"}
 
 📋 *פירוט הפריטים לליקוט:*
 ${itemsText}
 
+⚖️ *הנחיות בטיחות רכב:* ${weightStatus}
+${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עולה על כושר הנשיאה של הרכב. מומלץ לפצל סבבים או לתאם משאית.\n" : ""}
 ⚠️ *הנחיות הגעה:* הצוות יחל בליקוט המוצרים כדי שיהיו מוכנים בדלפק. עם הגעתך, יש לגשת לדלפק המכירות למסירת מספר הטלפון והסדרת תשלום/תעודה.`;
   };
 
@@ -505,17 +529,24 @@ ${itemsText}
         <ConversationContent className="gap-3 px-3 py-3">
           {messages.length === 0 && (
             <div className="space-y-3">
-              <div className="rounded-2xl bg-muted/80 p-3 text-sm leading-relaxed border">
-                <p className="font-semibold text-primary mb-1">
+              <div
+                style={{ backgroundColor: "#0d3c84" }}
+                className="rounded-2xl p-3 text-sm leading-relaxed border border-blue-900 shadow-sm text-blue-100"
+              >
+                <p
+                  style={{ color: "#e9f0f9", fontWeight: "bold", fontSize: "17px" }}
+                  className="mb-1"
+                >
                   שלום! 👋 כאן הסדרן הדיגיטלי של ח. סבן חומרי בניין
                 </p>
-                <p className="text-muted-foreground text-xs leading-normal">
+                <p className="text-blue-100/90 text-xs leading-normal">
                   אני כאן כדי לתאם עבורך הזמנה לאיסוף עצמי מהיר (&quot;Click & Collect&quot;) לפני
                   הגעתך למגרש, לוודא זמינות בסניף המתאים ולהכין את הפריטים לליקוט.
                 </p>
                 {product && (
-                  <p className="text-xs font-medium text-foreground mt-2 border-t pt-2">
-                    סרקת כרגע: <strong>{product.name}</strong> (מק״ט {product.sku})
+                  <p className="text-xs font-medium text-blue-100 mt-2 border-t border-blue-400/20 pt-2">
+                    סרקת כרגע: <strong className="text-white">{product.name}</strong> (מק״ט{" "}
+                    {product.sku})
                   </p>
                 )}
               </div>
@@ -629,6 +660,47 @@ ${itemsText}
               </span>
               <span>רכב: {pickupOrder.vehicleType}</span>
             </div>
+
+            {/* בקרת משקל ובטיחות רכב */}
+            {(() => {
+              const calcWeight =
+                pickupOrder.totalWeightKg ??
+                pickupOrder.items.reduce((acc, it) => {
+                  const itemWeight =
+                    it.unitWeightKg || (it.sku === "112260" || it.sku === "111260" ? 27 : 25);
+                  return acc + (it.quantity || 1) * itemWeight;
+                }, 0);
+              const isMismatch =
+                pickupOrder.isWeightMismatch ||
+                (pickupOrder.vehicleType.includes("פרטי") && calcWeight > 300);
+
+              return (
+                <div
+                  className={`rounded-lg p-2 text-[11px] border ${
+                    isMismatch
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                      : "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span>⚖️ משקל כולל משוער: {calcWeight.toLocaleString()} ק״ג</span>
+                    <span className="text-[10px] uppercase font-mono">
+                      {calcWeight <= 300
+                        ? "רכב פרטי/קל"
+                        : calcWeight <= 700
+                          ? "טנדר/מסחרית"
+                          : "משאית/מלגזה"}
+                    </span>
+                  </div>
+                  {isMismatch && (
+                    <p className="mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                      ⚠️ חריגת משקל לרכב הלקוח! מומלץ לפצל את האיסוף לשני סבבים או לתאם משאית.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="pt-1 text-[11px] space-y-1">
               <p className="font-semibold text-foreground">פריטים לליקוט:</p>
               {pickupOrder.items.map((it, idx) => (
@@ -640,6 +712,19 @@ ${itemsText}
                 </div>
               ))}
             </div>
+
+            {/* המלצות טכניות ומשלימים */}
+            {pickupOrder.technicalRecommendations &&
+              pickupOrder.technicalRecommendations.length > 0 && (
+                <div className="rounded-lg bg-muted/60 p-2 text-[10px] space-y-0.5 border">
+                  <span className="font-bold text-foreground">💡 דגשים מקצועיים:</span>
+                  {pickupOrder.technicalRecommendations.map((rec, rIdx) => (
+                    <p key={rIdx} className="text-muted-foreground">
+                      {rec}
+                    </p>
+                  ))}
+                </div>
+              )}
           </div>
 
           <div className="flex gap-2">

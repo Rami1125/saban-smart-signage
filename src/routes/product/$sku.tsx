@@ -37,6 +37,12 @@ import {
   type GeolocationResult,
 } from "@/lib/location-chime";
 import { effectivePrice, findProduct, type Product } from "@/lib/products";
+import {
+  checkWeightFeasibility,
+  estimateUnitWeightKg,
+  TECHNICAL_RULES,
+  type TechnicalRule,
+} from "@/lib/technicalRules";
 
 type ProductSearch = {
   source?: string;
@@ -151,7 +157,13 @@ function ProductPage() {
     return () => window.removeEventListener("saban:storage:change", handleStorageChange);
   }, []);
 
-  // Calculation results
+  // Calculation results with Technical Rules and Weight Feasibility
+  const technicalRule: TechnicalRule | undefined = useMemo(() => {
+    if (!product) return undefined;
+    const normSku = product.sku.replace(/\D/g, "");
+    return TECHNICAL_RULES[normSku];
+  }, [product]);
+
   const calculation = useMemo(() => {
     if (!product) {
       return {
@@ -159,9 +171,12 @@ function ProductPage() {
         unitsNeeded: 0,
         estimatedCost: 0,
         palletsNeeded: null,
+        totalWeightKg: 0,
+        weightFeasibility: checkWeightFeasibility(0),
+        rule: undefined,
       };
     }
-    const coverage = product.coveragePerUnitM2 || 1;
+    const coverage = technicalRule?.coveragePerUnitM2 ?? (product.coveragePerUnitM2 || 1);
     const effectiveArea = areaM2 * (1 + wastePercent / 100);
     const unitsNeeded = Math.ceil(effectiveArea / coverage);
     const unitPrice = effectivePrice(product);
@@ -170,13 +185,23 @@ function ProductPage() {
       ? Math.ceil(unitsNeeded / product.unitsPerPallet)
       : null;
 
+    const unitWeight = estimateUnitWeightKg(product.sku, product.unitWeight, product.name);
+    const totalWeightKg = unitsNeeded * unitWeight;
+    const isPalletOrder =
+      (palletsNeeded !== null && palletsNeeded >= 1) ||
+      (product.unitsPerPallet ? unitsNeeded >= product.unitsPerPallet : false);
+    const weightFeasibility = checkWeightFeasibility(totalWeightKg, undefined, isPalletOrder);
+
     return {
       effectiveArea: Math.round(effectiveArea * 10) / 10,
       unitsNeeded,
       estimatedCost: Math.round(estimatedCost * 10) / 10,
       palletsNeeded,
+      totalWeightKg,
+      weightFeasibility,
+      rule: technicalRule,
     };
-  }, [areaM2, wastePercent, product]);
+  }, [areaM2, wastePercent, product, technicalRule]);
 
   // בדיקת מיקום וזיהוי סניף
   const handleCheckProximity = async () => {
@@ -719,6 +744,91 @@ function ProductPage() {
                   <strong>{calculation.palletsNeeded} משטחים</strong> ({product.unitsPerPallet} יח׳
                   במשטח מלא).
                 </span>
+              </div>
+            )}
+
+            {/* בקרת משקל ובטיחות רכב (Weight Feasibility Check) */}
+            <div
+              className={`rounded-2xl p-3.5 border transition-all ${
+                calculation.weightFeasibility.approvedCategory === "truck_trailer"
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
+                  : calculation.weightFeasibility.approvedCategory === "pickup_van"
+                    ? "bg-sky-500/10 border-sky-500/30 text-sky-900 dark:text-sky-200"
+                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs font-bold mb-1">
+                <span className="flex items-center gap-1.5">
+                  <span>⚖️ בקרת משקל והעמסה:</span>
+                  <span className="font-black text-sm">
+                    {calculation.totalWeightKg.toLocaleString()} ק״ג
+                  </span>
+                </span>
+                <span className="text-[11px] rounded-full px-2 py-0.5 bg-background/80 border font-semibold">
+                  {calculation.weightFeasibility.categoryLabel}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed opacity-90">
+                {calculation.weightFeasibility.recommendedVehicleText}
+              </p>
+              {calculation.totalWeightKg > 300 && (
+                <div className="mt-2 pt-2 border-t border-current/20 text-[11px] flex items-center gap-1 font-medium">
+                  <span>
+                    ⚠️ לא מתאים לרכב פרטי. במידת הצורך מומלץ לפצל איסוף או לתאם הובלת מנוף.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* מנוע ידע טכני והמלצות מוצרים משלימים (Technical Rules) */}
+            {technicalRule && (
+              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3.5 space-y-2 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-200">
+                  <span className="text-base">💡</span>
+                  <span>דגשים טכניים מומלצים למק״ט {technicalRule.sku}</span>
+                </div>
+
+                <div className="space-y-1 text-muted-foreground text-[11px]">
+                  {technicalRule.criticalNotes.map((note, nIdx) => (
+                    <p key={nIdx} className="leading-snug">
+                      • {note}
+                    </p>
+                  ))}
+                </div>
+
+                {technicalRule.mandatoryCompanions.length > 0 && (
+                  <div className="pt-2 border-t border-amber-500/20 space-y-1.5">
+                    <span className="font-bold text-foreground text-[11px] block">
+                      📌 מוצרים משלימים מחייבים ליישום תקני:
+                    </span>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {technicalRule.mandatoryCompanions.map((comp, cIdx) => (
+                        <div
+                          key={cIdx}
+                          className="rounded-xl bg-background/80 border p-2 text-[11px] flex items-start justify-between gap-2"
+                        >
+                          <div>
+                            <span className="font-bold text-foreground block">
+                              {comp.name} {comp.sku ? `(מק״ט ${comp.sku})` : ""}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                              {comp.reason}
+                            </span>
+                          </div>
+                          {comp.sku && (
+                            <Link
+                              to="/product/$sku"
+                              params={{ sku: comp.sku }}
+                              className="text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-1 rounded-md shrink-0 transition-colors"
+                            >
+                              למוצר 🔍
+                            </Link>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
