@@ -1,12 +1,22 @@
 // ============================================================================
 // File: src/components/noa/NoaChat.tsx
-// Version: 2.5.0 (SabanOS Smart Signage — High-Contrast UI & Dynamic Click & Collect)
+// Version: 2.6.0 (SabanOS Smart Signage — High-Contrast UI & Quick Action Decision Tree)
 // Maintained & Upgraded: 2026-09-22
 // ============================================================================
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { MessageCircle, Plus, Send, Trash2, X, Headset, Maximize2, Minimize2 } from "lucide-react";
+import {
+  MessageCircle,
+  Plus,
+  Send,
+  Trash2,
+  X,
+  Headset,
+  Maximize2,
+  Minimize2,
+  Sparkles,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -101,8 +111,8 @@ export type SelfPickupOrder = {
 function parsePickupJson(text: string): SelfPickupOrder | null {
   try {
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch && jsonMatch) {
-      const parsed = JSON.parse(jsonMatch);
+    if (jsonMatch && jsonMatch[1]) {
+      const parsed = JSON.parse(jsonMatch[1]);
       if (parsed.orderType === "SELF_PICKUP" && Array.isArray(parsed.items)) {
         return parsed as SelfPickupOrder;
       }
@@ -132,6 +142,56 @@ function parseOrder(text: string): ParsedOrder | null {
   if (!Number.isFinite(quantity) || quantity <= 0) return null;
   return { quantity, cost: Number.isFinite(cost) ? cost : 0 };
 }
+
+type QuickAction = {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  prompt: string;
+  badge?: string;
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
+  {
+    id: "talmid",
+    icon: "🏟️",
+    title: "איסוף מסניף התלמיד 6",
+    subtitle: "גבס, צבע, שפכטל, פרזול וכלי עבודה",
+    prompt: "אני מתכנן להגיע לסניף התלמיד 6 (חנות התלמיד 6 )",
+    badge: "אולם גבס",
+  },
+  {
+    id: "harash",
+    icon: "🏭",
+    title: "איסוף מסניף החרש 4",
+    subtitle: "בלות חול, סומסום, שקי מלט, בלוקים וברזל",
+    prompt: "אני מתכנן להגיע לסניף החרש 4 (מגרש ראשי)",
+    badge: "מגרש ראשי",
+  },
+  {
+    id: "delivery",
+    icon: "🚛",
+    title: "תיאום הובלה / מנוף",
+    subtitle: "משאית מנוף לקומה או חלוקה ישירה לאתר",
+    prompt: "אני מעוניין לתאם הובלה ופריקה באתר",
+    badge: "סידור",
+  },
+  {
+    id: "paint",
+    icon: "🎨",
+    title: "גיוון צבע ממוחשב",
+    subtitle: "התאמת גוונים ממניפות טמבור ונירלט וכמויות",
+    prompt: "אני רוצה להתייעץ על גיוון צבע והתאמת כמויות",
+  },
+  {
+    id: "technical",
+    icon: "💡",
+    title: "ייעוץ ומפרט טכני",
+    subtitle: "חומרי איטום, סיקה, דבקים ושיקום בטון",
+    prompt: "אני צריך ייעוץ ומפרט טכני לבחירת חומרים",
+  },
+];
 
 const FALLBACK_PRODUCT: Product = {
   sku: "GENERAL",
@@ -274,7 +334,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
           <header className="flex items-center gap-2 border-b bg-slate-900 px-3.5 py-2.5 text-white">
             <div className="relative flex size-10 items-center justify-center rounded-full bg-amber-400/20 ring-2 ring-amber-400 overflow-hidden shrink-0">
               <img
-                src="https://i.ibb.co/7NrGZ1rH/Gemini-Generated-Image-8d92088d92088d92.jpg"
+                src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
                 alt="נועה | נציגת דלפק ראשית"
                 onError={(e) => {
                   const target = e.currentTarget;
@@ -292,7 +352,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
             <div className="flex-1 leading-tight text-right">
               <p className="text-sm font-black text-white flex items-center gap-1.5">
                 <span>נועה | נציגת דלפק ראשית</span>
-                <span className="text-xs">👷‍♀️</span>
+                <span className="text-xs">❤️</span>
               </p>
               <p className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                 <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -641,33 +701,41 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <p className="text-xs font-bold text-foreground">לאיזה סניף תרצה להגיע לאיסוף?</p>
-                <div className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void submit("אני מתכנן להגיע לסניף החרש 4 (מגרש ראשי)")}
-                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-amber-500 hover:bg-amber-50/20 transition-all shadow-xs"
-                  >
-                    <span className="font-bold text-foreground text-xs">
-                      1️⃣ סניף החרש 4 (מגרש העמסות ראשי)
-                    </span>
-                    <span className="text-[11px] font-semibold text-muted-foreground">
-                      מלט, שקים, בלוקים, איטום, ברזל
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void submit("אני מתכנן להגיע לסניף התלמיד 6 (חנות התלמיד 6 )")}
-                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-amber-500 hover:bg-amber-50/20 transition-all shadow-xs"
-                  >
-                    <span className="font-bold text-foreground text-xs">
-                      2️⃣ סניף התלמיד 6 (חנות וגבס)
-                    </span>
-                    <span className="text-[11px] font-semibold text-muted-foreground">
-                      לוחות גבס, צבעים, שפכטל, פרזול
-                    </span>
-                  </button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-amber-500" />
+                    <span>בחר פעולה מהירה להתחלה:</span>
+                  </p>
+                  <span className="text-[10px] text-muted-foreground font-semibold">לחץ לניתוב מהיר</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {QUICK_ACTIONS.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void submit(action.prompt)}
+                      className="group relative flex flex-col items-start rounded-xl border-2 border-border/80 bg-card p-2.5 text-right transition-all hover:border-amber-500 hover:bg-amber-50/20 active:scale-[0.98] shadow-xs"
+                    >
+                      {action.badge && (
+                        <span className="absolute top-2 left-2 rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-black text-amber-900 dark:text-amber-300 border border-amber-400/40">
+                          {action.badge}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-base group-hover:scale-110 transition-transform">
+                          {action.icon}
+                        </span>
+                        <span className="text-xs font-black text-foreground">
+                          {action.title}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-medium text-muted-foreground leading-tight">
+                        {action.subtitle}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
