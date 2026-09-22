@@ -1,24 +1,23 @@
-// Service Worker for Saban Smart Signage PWA
-// ח. סבן חומרי בניין (1994) בע״מ
-const CACHE_NAME = "saban-pwa-v1";
+// ============================================================================
+// Service Worker: SabanOS Offline Cache & OneSignal Push Integration
+// Version: 3.0.0
+// ============================================================================
+
+const CACHE_NAME = "saban-brain-v3.0.0";
 const STATIC_ASSETS = [
   "/",
-  "/manifest.webmanifest",
   "/manifest.json",
-  "/icon.svg",
-  "/pwa-192x192.png",
-  "/pwa-512x512.png",
-  "/apple-touch-icon.png",
-  "/favicon.ico",
+  "/assets/noa-avatar.png",
+  "/assets/icon-192.png",
+  "/assets/icon-512.png"
 ];
+
+// OneSignal Web Push SDK
+importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn("[SW] Cache preload warning:", err);
-      });
-    }),
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
@@ -28,59 +27,79 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        }),
+          if (key !== CACHE_NAME) return caches.delete(key);
+        })
       );
-    }),
+    })
   );
   self.clients.claim();
 });
 
+// Network-First with Cache Fallback for GViz CSV; Cache-First for static assets
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
+  const url = new URL(event.request.url);
 
-  // Do not cache non-GET or streaming API calls
-  if (request.method !== "GET" || request.url.includes("/api/chat")) {
-    return;
-  }
+  if (event.request.method !== "GET") return;
 
-  // Network-first with cache fallback for navigation / documents
-  if (request.mode === "navigate") {
+  if (url.hostname === "docs.google.com" && url.pathname.includes("/gviz/tq")) {
     event.respondWith(
-      fetch(request)
+      fetch(event.request)
         .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return response;
         })
-        .catch(() => {
-          return caches.match(request).then((cached) => {
-            if (cached) return cached;
-            return caches.match("/");
-          });
-        }),
+        .catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // Stale-While-Revalidate for images, stylesheets, scripts
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+    caches.match(event.request).then((cached) => {
+      return (
+        cached ||
+        fetch(event.request).then((response) => {
+          if (response.status === 200 && response.type === "basic") {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
-          return networkResponse;
+          return response;
         })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    }),
+      );
+    })
   );
+});
+
+// OneSignal Push Notification Event Handler
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  const payload = event.data.json();
+  const title = payload.title || "ח. סבן — עדכון הזמנה 📦";
+  const options = {
+    body: payload.body || "ישנו עדכון סטטוס בהזמנתך בדלפק.",
+    icon: "/assets/icon-192.png",
+    badge: "/assets/icon-192.png",
+    dir: "rtl",
+    lang: "he",
+    data: payload.data || {},
+    actions: [
+      { action: "open_chat", title: "פתח צ'אט נועה" },
+      { action: "close", title: "סגור" }
+    ]
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.action === "open_chat" || !event.action) {
+    event.waitUntil(
+      clients.matchAll({ type: "window" }).then((clientList) => {
+        for (const client of clientList) {
+          if (client.url === "/" && "focus" in client) return client.focus();
+        }
+        if (clients.openWindow) return clients.openWindow("/");
+      })
+    );
+  }
 });
