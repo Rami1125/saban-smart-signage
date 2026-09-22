@@ -274,7 +274,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
           <header className="flex items-center gap-2 border-b bg-slate-900 px-3.5 py-2.5 text-white">
             <div className="relative flex size-10 items-center justify-center rounded-full bg-amber-400/20 ring-2 ring-amber-400 overflow-hidden shrink-0">
               <img
-                src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
+                src="https://i.ibb.co/7NrGZ1rH/Gemini-Generated-Image-8d92088d92088d92.jpg"
                 alt="נועה | נציגת דלפק ראשית"
                 onError={(e) => {
                   const target = e.currentTarget;
@@ -292,7 +292,7 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
             <div className="flex-1 leading-tight text-right">
               <p className="text-sm font-black text-white flex items-center gap-1.5">
                 <span>נועה | נציגת דלפק ראשית</span>
-                <span className="text-xs">❤️</span>
+                <span className="text-xs">👷‍♀️</span>
               </p>
               <p className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                 <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
