@@ -36,7 +36,7 @@ import {
   type BranchId,
   type GeolocationResult,
 } from "@/lib/location-chime";
-import { effectivePrice, findProduct, MASTER_PRODUCTS, type Product } from "@/lib/products";
+import { effectivePrice, findProduct, type Product } from "@/lib/products";
 
 type ProductSearch = {
   source?: string;
@@ -50,6 +50,17 @@ export const Route = createFileRoute("/product/$sku")({
     warehouse: typeof search.warehouse === "string" ? search.warehouse : undefined,
     screen_id: typeof search.screen_id === "string" ? search.screen_id : undefined,
   }),
+  loader: async ({ params }) => {
+    try {
+      const { getLobbyProductsCached } = await import("@/lib/lobby.server");
+      const { products } = await getLobbyProductsCached();
+      const { findProduct } = await import("@/lib/products");
+      const product = findProduct(products, params.sku) ?? products[0] ?? null;
+      return { product, products };
+    } catch {
+      return { product: null, products: [] };
+    }
+  },
   component: ProductPage,
 });
 
@@ -68,11 +79,36 @@ function toEmbedUrl(url?: string): string | undefined {
 function ProductPage() {
   const params = Route.useParams();
   const search = Route.useSearch();
+  const loaderData = Route.useLoaderData();
   const rawSku = params.sku;
 
-  // Find product by SKU with fallback to master product #0 so it never 404s
-  const product: Product = useMemo(() => {
-    return findProduct(MASTER_PRODUCTS, rawSku) ?? MASTER_PRODUCTS[0]!;
+  // Dynamic product loading from Google Sheet 📦 קטלוג_מוצרים
+  const [product, setProduct] = useState<Product | null>(loaderData?.product ?? null);
+  const [availableProducts, setAvailableProducts] = useState<Product[]>(loaderData?.products ?? []);
+  const [isLoading, setIsLoading] = useState<boolean>(!loaderData?.product);
+
+  useEffect(() => {
+    let isMounted = true;
+    import("@/lib/lobby.functions")
+      .then((mod) => mod.getLobbyProducts())
+      .then((res) => {
+        if (isMounted) {
+          const list = res?.products || [];
+          setAvailableProducts(list);
+          const match = findProduct(list, rawSku);
+          setProduct(match || (list.length > 0 ? list[0] : null));
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load product from Google Sheets:", err);
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [rawSku]);
 
   // Branch & Warehouse context resolution
@@ -117,6 +153,14 @@ function ProductPage() {
 
   // Calculation results
   const calculation = useMemo(() => {
+    if (!product) {
+      return {
+        effectiveArea: 0,
+        unitsNeeded: 0,
+        estimatedCost: 0,
+        palletsNeeded: null,
+      };
+    }
     const coverage = product.coveragePerUnitM2 || 1;
     const effectiveArea = areaM2 * (1 + wastePercent / 100);
     const unitsNeeded = Math.ceil(effectiveArea / coverage);
@@ -170,6 +214,7 @@ function ProductPage() {
 
   // שמירה לזיכרון המכשיר בלבד (לחישוב עתידי)
   const handleSaveToDeviceOnly = async () => {
+    if (!product) return;
     const unitPrice = effectivePrice(product);
     const saved = await dispatchDualPersistence({
       sku: product.sku,
@@ -197,6 +242,7 @@ function ProductPage() {
 
   // שידור מלא לדלפק עם שמירה כפולה במכשיר ובגליון
   const handleDispatch = async () => {
+    if (!product) return;
     const unitPrice = effectivePrice(product);
 
     // 1. קול פעמון שידור
@@ -243,6 +289,7 @@ function ProductPage() {
   };
 
   const handleShare = async () => {
+    if (!product) return;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -258,6 +305,46 @@ function ProductPage() {
       toast.info("קישור הדף הועתק ללוח!");
     }
   };
+
+  if (isLoading) {
+    return (
+      <div
+        dir="rtl"
+        className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-4"
+      >
+        <div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center animate-pulse">
+          <Package className="size-7" />
+        </div>
+        <h2 className="text-lg font-bold">טוען מפרט מוצר...</h2>
+        <p className="text-xs text-muted-foreground text-center">
+          שולף נתוני מוצר ומחירון חי מגיליון 📦 קטלוג_מוצרים של ח. סבן
+        </p>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div
+        dir="rtl"
+        className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 space-y-4 text-center max-w-md mx-auto"
+      >
+        <div className="size-14 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
+          <Package className="size-7" />
+        </div>
+        <h2 className="text-lg font-bold">מוצר לא נמצא בקטלוג הפעיל</h2>
+        <p className="text-xs text-muted-foreground">
+          המק״ט {rawSku} אינו מופיע כרגע בגיליון 📦 קטלוג_מוצרים של ח. סבן.
+        </p>
+        <Link
+          to="/"
+          className="rounded-xl bg-primary text-primary-foreground font-semibold px-4 py-2 text-sm shadow-xs"
+        >
+          חזרה למסך הלובי
+        </Link>
+      </div>
+    );
+  }
 
   const currentPrice = effectivePrice(product);
   const hasDiscount = product.salePrice && product.salePrice < product.price;

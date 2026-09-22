@@ -1,10 +1,10 @@
-import { MASTER_PRODUCTS, type Product } from "./products";
+import { type Companion, type Product } from "./products";
 
 const SHEET_ID = "1UUnQxlLuPAc5fVfTI277w9ByxFSwrD2giYkoXIPC7sI";
-const SHEET_TAB = "מוצרים_לובי";
-const CACHE_TTL_MS = 60_000;
+const SHEET_TAB = "📦 קטלוג_מוצרים";
+const CACHE_TTL_MS = 45_000;
 
-type CacheEntry = { at: number; products: Product[]; source: "sheets" | "fallback" };
+type CacheEntry = { at: number; products: Product[]; source: "sheets" };
 let cache: CacheEntry | null = null;
 
 type GvizCell = { v?: unknown } | null;
@@ -16,9 +16,11 @@ function cellText(cell: GvizCell): string {
   return String(cell.v).trim();
 }
 
-function num(value: string): number | undefined {
-  const parsed = Number(value.replace(/[^\d.-]/g, ""));
-  return Number.isFinite(parsed) && value !== "" ? parsed : undefined;
+function num(value: string | number | undefined): number | undefined {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (!value) return undefined;
+  const parsed = Number(String(value).replace(/[^\d.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function list(value: string): string[] {
@@ -28,40 +30,83 @@ function list(value: string): string[] {
     .filter(Boolean);
 }
 
+function parseCompanions(raw: string): Companion[] {
+  if (!raw) return [];
+  return raw
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const match = item.match(/(.+?)(?:\s*\(מק״ט\s*([^)]+)\))?$/);
+      if (match) {
+        return {
+          name: match[1]!.trim(),
+          sku: match[2]?.trim(),
+          reason: "מוצר משלים מומלץ",
+        };
+      }
+      return {
+        name: item,
+        reason: "מוצר משלים",
+      };
+    });
+}
+
 function rowToProduct(headers: string[], row: GvizRow): Product | null {
-  const get = (key: string) => {
-    const index = headers.indexOf(key);
-    return index === -1 ? "" : cellText(row.c[index] ?? null);
+  const get = (keyVariants: string[]) => {
+    for (const key of keyVariants) {
+      const index = headers.findIndex((h) => h.toLowerCase() === key.toLowerCase());
+      if (index !== -1) {
+        const val = cellText(row.c[index] ?? null);
+        if (val) return val;
+      }
+    }
+    return "";
   };
-  const sku = get("sku");
-  const name = get("name");
+
+  const sku = get(["מק״ט SKU", "sku", "מק״ט", 'מק"ט']);
+  const name = get(["שם המוצר", "name", "שם"]);
   if (!sku || !name) return null;
-  const master = MASTER_PRODUCTS.find((p) => p.sku === sku);
-  const isActive = get("isActive").toLowerCase();
+
+  const isActiveRaw = get(["פעיל בשילוט? (TRUE/FALSE)", "isActive", "פעיל"]);
+  const isActive =
+    isActiveRaw === ""
+      ? true
+      : !["false", "0", "לא", "no", "לֹא"].includes(isActiveRaw.toLowerCase());
+
+  const rawCompanions = get(["מוצרים משלימים מחייבים", "companions", "מוצרים משלימים"]);
 
   return {
-    ...(master ?? MASTER_PRODUCTS[0]!),
     sku,
     name,
-    category: get("category") || master?.category || "כללי",
-    brand: get("brand") || master?.brand || "ח. סבן",
-    price: num(get("price")) ?? master?.price ?? 0,
-    salePrice: num(get("salePrice")) ?? master?.salePrice,
-    discountTag: get("discountTag") || master?.discountTag,
-    marketingPhrase: get("marketingPhrase") || master?.marketingPhrase || "",
-    mediaUrl: get("mediaUrl") || master?.mediaUrl,
-    unitLabel: get("packaging") || master?.unitLabel || "יחידה",
-    unitWeight: get("unitWeight") || master?.unitWeight || "",
-    unitsPerPallet: num(get("unitsPerPallet")) ?? master?.unitsPerPallet,
-    coveragePerUnitM2: num(get("coverageM2")) ?? master?.coveragePerUnitM2 ?? 1,
-    coverageNote: get("coverageNote") || master?.coverageNote || "",
-    dryingTime: get("dryingTime") || master?.dryingTime,
-    applicationMethod: get("applicationMethod") || master?.applicationMethod || "",
-    substrates: list(get("substrates")).length
-      ? list(get("substrates"))
-      : (master?.substrates ?? []),
-    displayDuration: num(get("displayDuration")) ?? master?.displayDuration ?? 25,
-    isActive: isActive === "" ? true : !["false", "0", "לא"].includes(isActive),
+    category: get(["קטגוריה", "category"]) || "כללי",
+    brand: get(["מותג", "brand"]) || "ח. סבן",
+    price: num(get(["מחירון (₪)", "price", "מחיר"])) ?? 0,
+    salePrice: num(get(["מחיר קבלן (₪)", "salePrice", "מחיר קבלן"])),
+    discountTag: get(["תגית מבצע", "discountTag", "מבצע"]) || undefined,
+    marketingPhrase: get(["הערת כיסוי", "marketingPhrase", "תיאור קצר"]) || `${name} — אספקה בסבן`,
+    image:
+      get(["קישור לתמונה", "image", "תמונה"]) ||
+      "https://saban-smart-signage.vercel.app/assets/product-adhesive-bag.jpg",
+    mediaUrl:
+      get(["קישור לסרטון הדרכה (YouTube)", "mediaUrl", "סרטון"]) ||
+      "https://www.youtube.com/embed/ScMzIvxBSi4",
+    tdsUrl: get(["קישור TDS טכני", "tdsUrl", "tds"]) || undefined,
+    unitLabel: get(["יחידת אריזה", "packaging", "unitLabel"]) || "יחידה",
+    unitWeight: get(["משקל יחידה", "unitWeight", "משקל"]) || "",
+    unitsPerPallet: num(get(["יחידות במשטח", "unitsPerPallet"])),
+    palletDeposit: get(["פקדון משטח (₪)", "palletDeposit", "פקדון משטח"]) || undefined,
+    coveragePerUnitM2: num(get(["כושר כיסוי (מ״ר)", "coverageM2", "coveragePerUnitM2"])) ?? 1,
+    coverageNote: get(["הערת כיסוי", "coverageNote"]) || "",
+    openTime: get(["זמן פתוח / עבודה", "openTime"]) || undefined,
+    dryingTime: get(["זמן ייבוש", "dryingTime"]) || undefined,
+    applicationMethod: get(["שיטת יישום", "applicationMethod"]) || "",
+    standard: get(["תקן רשמי", "standard"]) || undefined,
+    substrates: list(get(["מצעים מאושרים", "substrates"])),
+    companions: parseCompanions(rawCompanions),
+    displayDuration: num(get(["displayDuration"])) ?? 25,
+    preferredWarehouse: get(["מחסן / סניף מועדף", "preferredWarehouse", "סניף מועדף"]) || undefined,
+    isActive,
   };
 }
 
@@ -74,7 +119,13 @@ async function fetchFromAppsScript(): Promise<Product[] | null> {
     if (!res.ok) return null;
     const data = (await res.json()) as { success?: boolean; products?: Product[] };
     if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-      return data.products;
+      return data.products.map((p) => ({
+        ...p,
+        isActive: p.isActive !== false,
+        displayDuration: p.displayDuration || 25,
+        substrates: Array.isArray(p.substrates) ? p.substrates : [],
+        companions: Array.isArray(p.companions) ? p.companions : [],
+      }));
     }
   } catch (err) {
     console.warn("Could not fetch products from Apps Script:", err);
@@ -83,11 +134,13 @@ async function fetchFromAppsScript(): Promise<Product[] | null> {
 }
 
 async function fetchFromSheets(): Promise<Product[] | null> {
+  // 1. קריאה ישירה מ-Apps Script המקושר לגיליון 📦 קטלוג_מוצרים
   const fromAppsScript = await fetchFromAppsScript();
   if (fromAppsScript && fromAppsScript.length > 0) {
     return fromAppsScript;
   }
 
+  // 2. קריאה ישירה דרך Google Visualization API מגיליון 📦 קטלוג_מוצרים
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
     SHEET_TAB,
   )}`;
@@ -106,19 +159,24 @@ async function fetchFromSheets(): Promise<Product[] | null> {
       .map((row) => rowToProduct(headers, row))
       .filter((p): p is Product => p !== null);
     return products.length ? products : null;
-  } catch {
+  } catch (err) {
+    console.warn("Could not fetch products from Google Sheets gviz:", err);
     return null;
   }
 }
 
-/** רשימת מוצרי הלובי עם מטמון של 60 שניות ונתוני גיבוי מקומיים */
+/**
+ * רשימת מוצרים הנשלפת אך ורק מגיליון 📦 קטלוג_מוצרים (עם מטמון קצר של 45 שניות)
+ */
 export async function getLobbyProductsCached(): Promise<CacheEntry> {
   const now = Date.now();
   if (cache && now - cache.at < CACHE_TTL_MS) return cache;
 
   const fromSheets = await fetchFromSheets();
-  cache = fromSheets
-    ? { at: now, products: fromSheets, source: "sheets" }
-    : { at: now, products: MASTER_PRODUCTS, source: "fallback" };
+  cache = {
+    at: now,
+    products: fromSheets || [],
+    source: "sheets",
+  };
   return cache;
 }

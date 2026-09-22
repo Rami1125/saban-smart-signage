@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { MASTER_PRODUCTS, normalizeSku } from "@/lib/products";
+import { normalizeSku } from "@/lib/products";
 
 type ProductSearch = {
   sku?: string;
@@ -25,7 +25,7 @@ function ProductIndex() {
   const clientSku =
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("sku") : null;
   const rawSku = search.sku || clientSku;
-  const targetSku = normalizeSku(rawSku) || MASTER_PRODUCTS[0]?.sku || "19255";
+  const targetSku = normalizeSku(rawSku) || "19255";
 
   return (
     <Navigate

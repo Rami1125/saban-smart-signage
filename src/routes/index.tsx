@@ -35,9 +35,18 @@ import {
   readDispatchQueue,
   whatsappLink,
 } from "@/lib/counter-dispatch";
-import { effectivePrice, findProduct, MASTER_PRODUCTS, type Product } from "@/lib/products";
+import { effectivePrice, findProduct, type Product } from "@/lib/products";
 
 export const Route = createFileRoute("/")({
+  loader: async () => {
+    try {
+      const { getLobbyProductsCached } = await import("@/lib/lobby.server");
+      const res = await getLobbyProductsCached();
+      return { products: res.products, source: res.source };
+    } catch {
+      return { products: [], source: "sheets" };
+    }
+  },
   component: Index,
 });
 
@@ -45,10 +54,12 @@ type ScreenMode = "tv" | "pos";
 
 export function Index() {
   const navigate = useNavigate();
+  const loaderData = Route.useLoaderData();
 
-  // Active products list
-  const [products, setProducts] = useState<Product[]>(MASTER_PRODUCTS);
-  const [dataSource, setDataSource] = useState<"sheets" | "fallback">("fallback");
+  // Active products list (fetched strictly from Google Sheets 📦 קטלוג_מוצרים)
+  const [products, setProducts] = useState<Product[]>(loaderData?.products || []);
+  const [dataSource, setDataSource] = useState<string>(loaderData?.source || "sheets");
+  const [isLoading, setIsLoading] = useState<boolean>(!loaderData?.products?.length);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
@@ -63,22 +74,23 @@ export function Index() {
     setIsClient(true);
   }, []);
 
-  // Fetch cached products from lobby server function if available
+  // Fetch products strictly from Google Sheet 📦 קטלוג_מוצרים
   useEffect(() => {
     let isMounted = true;
     import("@/lib/lobby.functions")
       .then((mod) => mod.getLobbyProducts())
       .then((res) => {
-        if (isMounted && res?.products?.length) {
-          setProducts(res.products);
-          setDataSource(res.source);
+        if (isMounted) {
+          if (res?.products?.length) {
+            setProducts(res.products);
+          }
+          setIsLoading(false);
         }
       })
-      .catch(() => {
-        // Fallback to local master products
+      .catch((err) => {
+        console.error("Failed to load products from Google Sheet:", err);
         if (isMounted) {
-          setProducts(MASTER_PRODUCTS);
-          setDataSource("fallback");
+          setIsLoading(false);
         }
       });
     return () => {
@@ -96,15 +108,16 @@ export function Index() {
     return () => clearInterval(interval);
   }, []);
 
-  const currentProduct: Product = useMemo(() => {
-    return products[currentIndex] ?? products[0] ?? MASTER_PRODUCTS[0]!;
+  const currentProduct: Product | undefined = useMemo(() => {
+    if (!products.length) return undefined;
+    return products[currentIndex] ?? products[0];
   }, [products, currentIndex]);
 
-  const slideDurationSec = currentProduct.displayDuration || 25;
+  const slideDurationSec = currentProduct?.displayDuration || 25;
 
   // TV Rotation Timer and Progress Bar
   useEffect(() => {
-    if (isPaused || viewMode !== "tv") return;
+    if (isPaused || viewMode !== "tv" || !products.length) return;
 
     const intervalMs = 100;
     const stepIncrement = (intervalMs / (slideDurationSec * 1000)) * 100;
@@ -140,6 +153,7 @@ export function Index() {
 
   // Generate QR URL targeting standalone product page
   const qrUrl = useMemo(() => {
+    if (!currentProduct) return "";
     const origin =
       isClient && typeof window !== "undefined"
         ? window.location.origin
@@ -147,10 +161,12 @@ export function Index() {
     return `${origin}/product/${currentProduct.sku}?source=lobby_qr&warehouse=auto&screen_id=${encodeURIComponent(
       selectedScreen,
     )}`;
-  }, [isClient, currentProduct.sku, selectedScreen]);
+  }, [isClient, currentProduct, selectedScreen]);
 
-  const price = effectivePrice(currentProduct);
-  const hasDiscount = currentProduct.salePrice && currentProduct.salePrice < currentProduct.price;
+  const price = currentProduct ? effectivePrice(currentProduct) : 0;
+  const hasDiscount = Boolean(
+    currentProduct?.salePrice && currentProduct.salePrice < currentProduct.price,
+  );
 
   const handleClearOrders = () => {
     clearDispatchQueue();
@@ -219,15 +235,26 @@ export function Index() {
               )}
             </button>
 
-            <Link
-              to="/product/$sku"
-              params={{ sku: currentProduct.sku }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground transition-all"
-            >
-              <Smartphone className="size-3.5" />
-              <span>תצוגת נייד</span>
-              <ExternalLink className="size-3 opacity-60" />
-            </Link>
+            {currentProduct ? (
+              <Link
+                to="/product/$sku"
+                params={{ sku: currentProduct.sku }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground transition-all"
+              >
+                <Smartphone className="size-3.5" />
+                <span>תצוגת נייד</span>
+                <ExternalLink className="size-3 opacity-60" />
+              </Link>
+            ) : (
+              <Link
+                to="/product/"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground transition-all"
+              >
+                <Smartphone className="size-3.5" />
+                <span>תצוגת נייד</span>
+                <ExternalLink className="size-3 opacity-60" />
+              </Link>
+            )}
 
             <PWAInstallButton />
           </div>
@@ -271,7 +298,21 @@ export function Index() {
       </header>
 
       {/* VIEW 1: LOBBY TV SIGNAGE */}
-      {viewMode === "tv" && (
+      {viewMode === "tv" && (!currentProduct || isLoading) && (
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[500px]">
+          <div className="rounded-3xl border bg-card p-10 max-w-md w-full text-center space-y-4 shadow-sm">
+            <div className="size-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto animate-pulse">
+              <Package className="size-8" />
+            </div>
+            <h3 className="text-xl font-bold">טוען קטלוג מוצרים</h3>
+            <p className="text-sm text-muted-foreground">
+              שולף נתונים חיים מגיליון 📦 קטלוג_מוצרים של ח. סבן...
+            </p>
+          </div>
+        </main>
+      )}
+
+      {viewMode === "tv" && currentProduct && !isLoading && (
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-between gap-6">
           {/* Main Hero TV Layout Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

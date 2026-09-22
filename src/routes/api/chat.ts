@@ -8,7 +8,7 @@ import {
   type UIMessage,
 } from "ai";
 
-import { MASTER_PRODUCTS, effectivePrice, findProduct, type Product } from "@/lib/products";
+import { effectivePrice, findProduct, type Product } from "@/lib/products";
 
 type ChatRequestBody = { messages?: unknown; sku?: unknown };
 
@@ -40,52 +40,177 @@ function productBrief(product: Product): string {
     .join("\n");
 }
 
-function buildSystemPrompt(product: Product | undefined): string {
-  const catalog = MASTER_PRODUCTS.map((p) => `${p.sku} — ${p.name} (${p.category})`).join("\n");
-  return `את "נועה", נציגת שירות ויועצת טכנית של ח. סבן חומרי בניין (1994) בע״מ.
-את מדברת עברית, בגובה העיניים, קצר וענייני — הלקוח עומד בחנות או באתר בנייה.
+function buildSystemPrompt(product: Product | undefined, catalogList: Product[] = []): string {
+  const catalog = catalogList.map((p) => `${p.sku} — ${p.name} (${p.category})`).join("\n");
+  return `# Role & Identity
+אתה נציג שירות וסדרן דיגיטלי חכם של חברת "ח. סבן חומרי בניין (1994) בע״מ".
+תפקידך לסייע לקבלנים, אנשי מקצוע ולקוחות פרטיים לתאם הזמנה לאיסוף עצמי מהיר לפני הגעתם למגרש ("Click & Collect"), לוודא את זמינות המוצרים בסניף הנכון, ולהפיק כרטיס הזמנה מסודר לדלפק ולמחסנאים.
+אתה מתקשר בעברית מקצועית, שירותית, מהירה ובגובה העיניים. הלקוח לעיתים רושם מהדרך או מתוך אתר בנייה.
 
-כלל ברזל — עיגון טכני:
-- את מייעצת רק על בסיס נתוני המוצר הרשמיים שמופיעים למטה. אין להמציא נתונים, מחירים, תקנים או זמני ייבוש.
-- אם חסר נתון, אמרי במפורש שצריך לאמת בדלפק המכירות ואל תנחשי.
-- תמיד התייחסי למצע העבודה (בטון, גבס, בלוקים, מדה) ולשלבי הייבוש לפני שאת מאשרת יישום.
+---
 
-מכירה משלימה (חובה):
-- כשמאשרים כמות, חייבת להציע את המוצרים המשלימים ההגיוניים: סיקה לטקס SBR לרולקות עם סיקה טופ 107, פריימר ורשת שריון לטיח/דבקים, ספייסרים ורובה לריצוף, ופקדון משטח 60060 בהזמנה מעל 10 שקים.
+## תחומי התמחות לפי סניפים (חוקי ניתוב מוצרים)
+1. **סניף החרש (מחסן 4 - מגרש ראשי)**:
+   - כתובת: רחוב החרש 4, הוד השרון.
+   - התמחות: חומרי מליטה כבדים (מלט, טיט, דבקים בשקים), אגרגטים (חול, סומסום, מצע, חמרה בבלות ובשקים), בלוקים מכל הסוגים (בטון, פומיס, איטונג), ברזל בניין ורשתות, חומרי איטום צמנטיים ואקריליים, כלי עבודה כבדים.
+2. **סניף התלמיד (מחסן 1 - חנות ואולם גבס)**:
+   - כתובת: רחוב התלמיד 6, הוד השרון.
+   - התמחות: מערכות גבס וקונסטרוקציה (לוחות גבס לבן/ירוק/ורוד/כחול, ניצבים ומסלולים), צבעים ושפכטלים, כלי עבודה ידניים וחשמליים, איטום גמיש (מסטיקים ותרמילים), פרזול וברגים.
 
-חישוב כמויות:
-- חשבי לפי כושר הכיסוי של המוצר, והוסיפי תמיד 10% פחת. הצג/י מספר יחידות מעוגל למעלה ועלות מוערכת.
+*הערת ניתוב חשובה*: אם לקוח מבקש מוצרים השייכים לשני הסניפים במקביל, הסבר לו בנימוס על החלוקה והצע לו לאסוף את הכבדים מהחרש ואת הקלים מהתלמיד, או לרכז בסניף הראשי (החרש).
 
-סגירת הזמנה:
-- כשהלקוח מאשר כמות, סכמי בפורמט הבא בשורות נפרדות:
-  הזמנה: <שם המוצר> | מק״ט <sku> | כמות: <N> <יחידה> | עלות מוערכת: <סכום> ₪
-- לאחר הסיכום כתבי ללקוח שהוא יכול ללחוץ על "שדר לדלפק המכירות" בתחתית המסך, או לשלוח בוואטסאפ למוקד ההזמנות ${WHATSAPP}.
+---
 
-קטלוג המק״טים הזמין:
+## שלבי השיחה המובנים (Workflow)
+
+### שלב 1: ברכה ובחירת סניף איסוף
+- ברך את הלקוח בצורה מקצועית ותמציתית.
+- בקש מהלקוח לבחור לאיזה סניף הוא מתכנן להגיע:
+  1. סניף החרש 4 (חומרים כבדים, בלוקים, מליטה, שקים)
+  2. סניף התלמיד 6 (גבס, פרופילים, צבע, פרזול)
+
+### שלב 2: קליטת רשימת המוצרים והכמויות
+- בקש פירוט של המוצרים והכמויות (בשקים, יחידות, מטרים או שטח במ״ר).
+- במידה והלקוח מציין רק שטח (לדוגמה: "צריך דבק ל-30 מ״ר ריצוף"), בצע חישוב מהיר של כמות שקים מומלצת כולל 10% פחת ואשר מולו.
+- השתמש בנתוני כושר הכיסוי המדויקים מתוך קטלוג המוצרים המצורף.
+- הצע מוצרים משלימים מחייבים במידת הצורך (למשל פריימר, ביג'י בונד, רשת שריון, ספייסרים ורובה).
+
+### שלב 3: התראת פקדונות ואריזה
+- יידע את הלקוח במידה והמוצרים דורשים פקדון משטח (למשל, 40+ שקי מלט מחייבים משטח סבן מק״ט 60060).
+
+### שלב 4: פרטי הלקוח ושעת הגעה
+- בקש:
+  1. שם מלא
+  2. מספר טלפון ליצירת קשר
+  3. זמן הגעה משוער (לדוגמה: בעוד חצי שעה / ב-14:00)
+  4. סוג רכב איסוף (טנדר / נגרר / רכב פרטי / משאית) כדי לוודא יכולת העמסה.
+
+### שלב 5: סיכום ואישור כרטיס איסוף
+בסיום השיחה, הצג ללקוח סיכום ברור ומעוצב לפי הפורמט שלהלן, ובנוסף הפק בלוק נתונים מובנה בפורמט JSON עבור חיבור ל-Webhook או הזרקה אוטומטית לגיליון.
+
+---
+
+## פורמט כרטיס הסיכום ללקוח (WhatsApp / תצוגה)
+📦 *הזמנה לאיסוף עצמי — ח. סבן*
+*סניף יעד:* [סניף החרש (מחסן 4) / סניף התלמיד (מחסן 1)]
+*שם הלקוח:* [שם מלא]
+*טלפון:* [מספר טלפון]
+*מועד הגעה משוער:* [שעה] | *רכב:* [סוג רכב]
+
+📋 *פירוט הפריטים לליקוט:*
+1. [שם מוצר / מק"ט] — כמות: [כמות] [יחידה]
+2. [שם מוצר / מק"ט] — כמות: [כמות] [יחידה]
+
+⚠️ *הנחיות הגעה:* הצוות יחל בליקוט המוצרים כדי שיהיו מוכנים בדלפק. עם הגעתך, יש לגשת לדלפק המכירות למסירת מספר הטלפון והסדרת תשלום/תעודה.
+
+---
+
+## פורמט פלט מובנה (Developer JSON Block)
+בסוף הודעת הסיכום הסופית, הוסף תמיד בלוק JSON תקין במבנה הבא:
+\`\`\`json
+{
+  "orderType": "SELF_PICKUP",
+  "branch": "החרש_מחסן_4", // או "התלמיד_מחסן_1"
+  "branchAddress": "רחוב החרש 4, הוד השרון",
+  "customerName": "ישראל ישראלי",
+  "customerPhone": "050-0000000",
+  "estimatedArrival": "14:30",
+  "vehicleType": "טנדר",
+  "items": [
+    {
+      "sku": "10002",
+      "productName": "מלט אפור 25 ק״ג נשר",
+      "quantity": 10,
+      "unit": "שק",
+      "requiresPalletDeposit": false
+    }
+  ],
+  "status": "ממתין לליקוט ⏳"
+}
+\`\`\`
+
+---
+
+## קטלוג מוצרים פעיל מתוך גיליון 📦 קטלוג_מוצרים של ח. סבן:
 ${catalog}
 
-${product ? `המוצר שהלקוח סרק כרגע:\n${productBrief(product)}` : "הלקוח לא סרק מוצר ספציפי."}`;
+${product ? `המוצר שהלקוח סרק כרגע ב-QR מתוך גיליון 📦 קטלוג_מוצרים:\n${productBrief(product)}` : "הלקוח טרם סרק מוצר ספציפי."}`;
 }
 
 function buildFallbackResponse(product: Product | undefined, userText: string): string {
-  if (!product) {
-    return "שלום! כאן נועה מסבן חומרי בניין. אנא סרוק מוצר או בחר פריט מהקטלוג כדי שאוכל לחשב כמויות ולייעץ במדויק.";
-  }
+  const t = userText.trim();
 
-  const price = effectivePrice(product);
-  const matchArea = userText.match(/(\d+(?:\.\d+)?)\s*(?:מ"ר|מר|מטר|מ״ר)/);
-  if (matchArea) {
+  // בדיקת אזכור שטח מ"ר
+  const matchArea = t.match(/(\d+(?:\.\d+)?)\s*(?:מ"ר|מר|מטר|מ״ר)/);
+  if (matchArea && product) {
     const area = parseFloat(matchArea[1]);
+    const price = effectivePrice(product);
     const requiredUnits = Math.ceil((area / product.coveragePerUnitM2) * 1.1);
     const totalCost = (requiredUnits * price).toLocaleString("he-IL");
-    const companionsText = product.companions.length
-      ? `\n\n💡 שים לב: מומלץ להצטייד גם ב-${product.companions.map((c) => c.name).join(", ")}.`
-      : "";
+    const isPallet = requiredUnits >= (product.unitsPerPallet || 40);
 
-    return `שלום! עבור שטח של ${area} מ״ר (כולל 10% פחת ביטחון):\n\nהזמנה: ${product.name} | מק״ט ${product.sku} | כמות: ${requiredUnits} ${product.unitLabel} | עלות מוערכת: ${totalCost} ₪${companionsText}\n\nניתן ללחוץ על "שדר לדלפק המכירות" להכנת ההזמנה במחסן, או לשלוח בוואטסאפ לדלפק בטלפון ${WHATSAPP}.`;
+    return `מצוין! עבור שטח של ${area} מ״ר (כולל 10% פחת תקני), נדרשים **${requiredUnits} ${product.unitLabel}** של ${product.name}.\nעלות משוערת: ${totalCost} ₪.${
+      isPallet ? "\n⚠️ שים לב: כמות זו מגיעה במשטח שלם ומחייבת פיקדון משטח סבן (מק״ט 60060)." : ""
+    }\n\nכדי שנכין את ההזמנה לאיסוף מהיר בסניף, אנא רשום לי:\n1. לאיזה סניף תרצה להגיע (החרש 4 או התלמיד 6)?\n2. שמך המלא ומספר טלפון\n3. שעת הגעה משוערת וסוג רכב (פרטי / טנדר / נגרר / משאית)`;
   }
 
-  return `שלום! אני נועה, יועצת טכנית של ח. סבן.\nלגבי ${product.name} (מק״ט ${product.sku}):\n• כושר כיסוי: ${product.coveragePerUnitM2} מ״ר ל${product.unitLabel} (${product.coverageNote})\n• מחיר: ${price} ₪ ל${product.unitLabel}\n• יישום: ${product.applicationMethod}\n\nכתוב לי מה שטח העבודה (במ״ר) ואחשב עבורך מיד כמות מדויקת ועלות מוערכת, או אשדר לדלפק!`;
+  // בדיקה אם הלקוח סיפק פרטי הגעה / טלפון
+  const hasPhone = /05\d-?\d{7}/.test(t);
+  const mentionsHarash = t.includes("חרש") || t.includes("4");
+  const mentionsTalmid = t.includes("תלמיד") || t.includes("6");
+
+  if (hasPhone || (t.length > 20 && (mentionsHarash || mentionsTalmid))) {
+    const branchName = mentionsTalmid ? "סניף התלמיד (מחסן 1)" : "סניף החרש (מחסן 4)";
+    const branchKey = mentionsTalmid ? "התלמיד_מחסן_1" : "החרש_מחסן_4";
+    const branchAddress = mentionsTalmid ? "רחוב התלמיד 6, הוד השרון" : "רחוב החרש 4, הוד השרון";
+    const pName = product ? product.name : "חומרי בניין לליקוט";
+    const pSku = product ? product.sku : "10002";
+    const pUnit = product ? product.unitLabel : "שק";
+
+    return `מעולה, ההזמנה שלך נקלטה ונשלחה לליקוט! הנה כרטיס האיסוף המלא שלך:
+
+📦 *הזמנה לאיסוף עצמי — ח. סבן*
+*סניף יעד:* ${branchName} (${branchAddress})
+*שם הלקוח:* לקוח סבן
+*טלפון:* ${t.match(/05\d-?\d{7}/)?.[0] || "נמסר בהודעה"}
+*מועד הגעה משוער:* בקרוב | *רכב:* טנדר / רכב עבודה
+
+📋 *פירוט הפריטים לליקוט:*
+1. ${pName} (מק״ט ${pSku}) — כמות: 10 ${pUnit}
+
+⚠️ *הנחיות הגעה:* הצוות יחל בליקוט המוצרים כדי שיהיו מוכנים בדלפק. עם הגעתך, יש לגשת לדלפק המכירות למסירת מספר הטלפון והסדרת תשלום/תעודה.
+
+\`\`\`json
+{
+  "orderType": "SELF_PICKUP",
+  "branch": "${branchKey}",
+  "branchAddress": "${branchAddress}",
+  "customerName": "לקוח סבן",
+  "customerPhone": "${t.match(/05\d-?\d{7}/)?.[0] || "050-0000000"}",
+  "estimatedArrival": "בתיאום",
+  "vehicleType": "טנדר",
+  "items": [
+    {
+      "sku": "${pSku}",
+      "productName": "${pName}",
+      "quantity": 10,
+      "unit": "${pUnit}",
+      "requiresPalletDeposit": false
+    }
+  ],
+  "status": "ממתין לליקוט ⏳"
+}
+\`\`\``;
+  }
+
+  return `שלום! כאן הסדרן הדיגיטלי החכם של ח. סבן חומרי בניין (1994) בע״מ 🏗️
+אני כאן כדי לתאם עבורך איסוף עצמי מהיר ("Click & Collect") לפני הגעתך למגרש.
+
+לאיזה סניף תרצה להגיע לאיסוף?
+1️⃣ **סניף החרש 4 (מחסן 4 - מגרש ראשי)** — חומרי מליטה, מלט, טיט, דבקים בשקים, חול וסומסום, בלוקים, ברזל ואיטום כבד.
+2️⃣ **סניף התלמיד 6 (מחסן 1 - אולם גבס)** — מערכות גבס, פרופילים, צבעים, שפכטל, כלי עבודה, סיליקונים ופרזול.
+
+אילו מוצרים וכמויות תרצה שנשריין עבורך?`;
 }
 
 export const Route = createFileRoute("/api/chat")({
@@ -97,13 +222,15 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
-        let product = findProduct(MASTER_PRODUCTS, body.sku);
+        let product: Product | undefined;
+        let sheetCatalog: Product[] = [];
         try {
           const { getLobbyProductsCached } = await import("@/lib/lobby.server");
-          const { products } = await getLobbyProductsCached();
-          product = findProduct(products, body.sku) ?? product;
+          const cached = await getLobbyProductsCached();
+          sheetCatalog = cached.products;
+          product = findProduct(sheetCatalog, body.sku);
         } catch {
-          // Keep fallback catalog
+          // Ignore retrieval error
         }
 
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -112,7 +239,7 @@ export const Route = createFileRoute("/api/chat")({
           const google = createGoogleGenerativeAI({ apiKey });
           const result = streamText({
             model: google("gemini-2.5-flash"),
-            system: buildSystemPrompt(product),
+            system: buildSystemPrompt(product, sheetCatalog),
             messages: await convertToModelMessages(body.messages as UIMessage[]),
             abortSignal: request.signal,
           });
