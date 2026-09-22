@@ -1,6 +1,6 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { MessageCircle, Plus, Send, Trash2, X, Headset } from "lucide-react";
+import { MessageCircle, Plus, Send, Trash2, X, Headset, Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -143,6 +143,7 @@ const FALLBACK_PRODUCT: Product = {
 export function NoaChat({ product, screenId }: { product?: Product | null; screenId?: string }) {
   const currentProduct = product ?? FALLBACK_PRODUCT;
   const [open, setOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showThreads, setShowThreads] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -209,18 +210,28 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
   return (
     <>
       {!open && (
-        <div className="fixed bottom-24 left-4 z-50 flex items-end gap-2 sm:bottom-6">
+        <div className="fixed bottom-24 left-4 z-50 flex items-end gap-2.5 sm:bottom-6">
           <button
             type="button"
             onClick={() => setOpen(true)}
             aria-label="פתיחת סדרן דיגיטלי חכם לאיסוף עצמי"
-            className="animate-noa-pulse flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-counter transition-transform active:scale-95"
+            className="animate-noa-pulse flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform active:scale-95 ring-2 ring-primary/40"
           >
             <Headset className="size-7" />
           </button>
-          <div className="animate-noa-pop max-w-[14rem] rounded-2xl rounded-bl-sm bg-card px-3 py-2 text-xs leading-snug text-card-foreground shadow-counter border">
-            <span className="font-semibold text-primary">סדרן דיגיטלי חכם 🏗️</span>
-            <p className="text-muted-foreground mt-0.5">
+          <div
+            onClick={() => setOpen(true)}
+            role="button"
+            tabIndex={0}
+            className="animate-noa-pop max-w-[15.5rem] rounded-2xl rounded-bl-sm bg-card px-3.5 py-2.5 text-card-foreground shadow-2xl border-2 border-primary/40 cursor-pointer hover:border-primary transition-all backdrop-blur-none"
+          >
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <span className="font-extrabold text-[13px] text-primary">סדרן דיגיטלי חכם 🏗️</span>
+              <span className="rounded-md bg-primary/20 text-foreground font-black text-[10px] px-1.5 py-0.5">
+                סבן
+              </span>
+            </div>
+            <p className="text-foreground font-bold text-xs leading-normal opacity-100">
               תיאום איסוף עצמי מהיר (Click & Collect) בסניפי החרש 4 והתלמיד 6.
             </p>
           </div>
@@ -228,15 +239,34 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
       )}
 
       {open && (
-        <div className="animate-noa-pop fixed inset-x-2 bottom-2 z-50 flex h-[85vh] max-h-[42rem] flex-col overflow-hidden rounded-3xl border bg-card shadow-counter sm:inset-x-auto sm:left-6 sm:w-[26rem]">
-          <header className="flex items-center gap-2 border-b bg-signage px-3 py-2.5 text-signage-foreground">
+        <div
+          className={cn(
+            "animate-noa-pop fixed z-50 flex flex-col overflow-hidden rounded-3xl border bg-card shadow-2xl transition-all duration-300",
+            isExpanded
+              ? "inset-2 sm:inset-6 md:inset-10 lg:inset-x-24 lg:inset-y-12"
+              : "inset-x-2 bottom-2 h-[85vh] max-h-[44rem] sm:inset-x-auto sm:left-6 sm:w-[28rem]",
+          )}
+        >
+          <header className="flex items-center gap-2 border-b bg-signage px-3.5 py-2.5 text-signage-foreground">
             <span className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <Headset className="size-5" />
             </span>
             <div className="flex-1 leading-tight">
-              <p className="text-sm font-semibold">סדרן דיגיטלי חכם 📦</p>
-              <p className="text-[11px] opacity-75">Click & Collect · ח. סבן חומרי בניין</p>
+              <p className="text-sm font-black">סדרן דיגיטלי חכם 📦</p>
+              <p className="text-[11px] font-bold text-signage-foreground/80">
+                Click & Collect · ח. סבן חומרי בניין
+              </p>
             </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              aria-label={isExpanded ? "הקטנת חלון" : "הרחבת חלון צ'אט"}
+              title={isExpanded ? "הקטן חלון" : "הרחב חלון צ'אט"}
+              className="text-signage-foreground hover:bg-signage-muted"
+            >
+              {isExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -531,52 +561,50 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
             <div className="space-y-3">
               <div
                 style={{ backgroundColor: "#0d3c84" }}
-                className="rounded-2xl p-3 text-sm leading-relaxed border border-blue-900 shadow-sm text-blue-100"
+                className="rounded-2xl p-3.5 text-sm leading-relaxed border border-blue-900 shadow-md text-white"
               >
                 <p
                   style={{ color: "#e9f0f9", fontWeight: "bold", fontSize: "17px" }}
-                  className="mb-1"
+                  className="mb-1.5"
                 >
                   שלום! 👋 כאן הסדרן הדיגיטלי של ח. סבן חומרי בניין
                 </p>
-                <p className="text-blue-100/90 text-xs leading-normal">
+                <p className="text-white font-medium text-xs leading-relaxed">
                   אני כאן כדי לתאם עבורך הזמנה לאיסוף עצמי מהיר (&quot;Click & Collect&quot;) לפני
                   הגעתך למגרש, לוודא זמינות בסניף המתאים ולהכין את הפריטים לליקוט.
                 </p>
                 {product && (
-                  <p className="text-xs font-medium text-blue-100 mt-2 border-t border-blue-400/20 pt-2">
-                    סרקת כרגע: <strong className="text-white">{product.name}</strong> (מק״ט{" "}
-                    {product.sku})
+                  <p className="text-xs font-semibold text-blue-100 mt-2.5 border-t border-blue-400/30 pt-2">
+                    סרקת כרגע: <strong className="text-white font-black">{product.name}</strong>{" "}
+                    (מק״ט <span className="font-mono">{product.sku}</span>)
                   </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold text-muted-foreground">
-                  לאיזה סניף תרצה להגיע לאיסוף?
-                </p>
-                <div className="flex flex-col gap-1.5">
+                <p className="text-xs font-bold text-foreground">לאיזה סניף תרצה להגיע לאיסוף?</p>
+                <div className="flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={() => void submit("אני מתכנן להגיע לסניף החרש 4 (מגרש ראשי)")}
-                    className="flex items-center justify-between rounded-xl border bg-card p-2 text-right text-xs hover:border-primary transition-colors"
+                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-primary hover:bg-primary/5 transition-all shadow-xs"
                   >
-                    <span className="font-semibold text-foreground">
+                    <span className="font-bold text-foreground text-xs">
                       1️⃣ סניף החרש 4 (מגרש ראשי)
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
                       מליטה, שקים, בלוקים, איטום, ברזל
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => void submit("אני מתכנן להגיע לסניף התלמיד 6 (חנות ואולם גבס)")}
-                    className="flex items-center justify-between rounded-xl border bg-card p-2 text-right text-xs hover:border-primary transition-colors"
+                    className="flex items-center justify-between rounded-xl border-2 border-border/80 bg-card p-2.5 text-right text-xs hover:border-primary hover:bg-primary/5 transition-all shadow-xs"
                   >
-                    <span className="font-semibold text-foreground">
+                    <span className="font-bold text-foreground text-xs">
                       2️⃣ סניף התלמיד 6 (חנות וגבס)
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
                       לוחות גבס, צבעים, שפכטל, פרזול
                     </span>
                   </button>
@@ -593,13 +621,15 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
               <Message from={message.role} key={message.id}>
                 <MessageContent
                   className={cn(
-                    "text-sm whitespace-pre-line leading-relaxed",
+                    "text-sm whitespace-pre-line leading-relaxed font-medium rounded-2xl shadow-xs",
                     message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-transparent px-0 text-foreground",
+                      ? "bg-primary text-primary-foreground font-bold border border-primary/60 px-4 py-2.5"
+                      : "bg-muted/90 border border-border/80 px-4 py-3 text-foreground font-medium",
                   )}
                 >
-                  <MessageResponse>{text}</MessageResponse>
+                  <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_strong]:font-black [&_strong]:text-foreground [&_li]:font-medium">
+                    {text}
+                  </MessageResponse>
                 </MessageContent>
               </Message>
             );
