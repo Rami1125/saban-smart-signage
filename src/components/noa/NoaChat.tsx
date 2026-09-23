@@ -929,6 +929,36 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
               </a>
             </Button>
           </div>
+
+          {/* ניתוב לנציג אנושי לפי סניף שנבחר (איציק זהבי בסניף החרש / יואב בסניף התלמיד) */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-foreground text-[11px]">
+                {pickupOrder.branch.includes("תלמיד")
+                  ? "איש קשר בדלפק התלמיד 6: יואב"
+                  : "איש קשר בדלפק החרש 4: איציק זהבי"}
+              </span>
+              <a
+                href={
+                  pickupOrder.branch.includes("תלמיד")
+                    ? "https://wa.me/972507855865?text=" +
+                      encodeURIComponent(
+                        `שלום יואב (סניף התלמיד 6), אני בדרך לאיסוף עצמי של הזמנה ${pickupOrder.customerName}: ${getWhatsappPickupMessage(pickupOrder)}`,
+                      )
+                    : "https://wa.me/972504482285?text=" +
+                      encodeURIComponent(
+                        `שלום איציק זהבי (סניף החרש 4), אני בדרך לאיסוף עצמי של הזמנה ${pickupOrder.customerName}: ${getWhatsappPickupMessage(pickupOrder)}`,
+                      )
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 rounded-lg text-[10px] flex items-center gap-1 transition-colors"
+              >
+                <span>WhatsApp נציג</span>
+                <span>💬</span>
+              </a>
+            </div>
+          </div>
         </div>
       )}
 

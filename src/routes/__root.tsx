@@ -115,6 +115,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "canonical", href: "https://saban-smart-signage.vercel.app/" },
     ],
+    scripts: [
+      {
+        src: "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js",
+        defer: true,
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -136,10 +142,38 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+interface OneSignalInstance {
+  init: (config: {
+    appId: string;
+    notifyButton?: { enable: boolean };
+    allowLocalhostAsSecureOrigin?: boolean;
+  }) => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    OneSignalDeferred?: Array<(oneSignal: OneSignalInstance) => void>;
+  }
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
+    // Initialize OneSignal Push Notifications (App ID: acc8a2bc-d54e-4261-b3d2-cc5c5f7b39d3)
+    if (typeof window !== "undefined") {
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      window.OneSignalDeferred.push(async function (OneSignal: OneSignalInstance) {
+        await OneSignal.init({
+          appId: "acc8a2bc-d54e-4261-b3d2-cc5c5f7b39d3",
+          notifyButton: {
+            enable: false,
+          },
+          allowLocalhostAsSecureOrigin: true,
+        });
+      });
+    }
+
     // Register PWA Service Worker in production/client
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       window.addEventListener("load", () => {
