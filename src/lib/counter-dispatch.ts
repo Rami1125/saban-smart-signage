@@ -66,7 +66,7 @@ export function dispatchToCounter(params: DispatchCounterParams) {
       (window as any).OneSignal.push(() => {
         (window as any).OneSignal.sendSelfNotification(
           "ח. סבן — הזמנת איסוף חדשה 📦",
-          `הזמנה עבור ${params.productName} (${params.quantity} ${params.unitLabel}) ממתינה לליקוט בדלפק.`
+          `הזמנה עבור ${params.productName} (${params.quantity} ${params.unitLabel}) ממתינה לליקוט בדלפק.`,
         );
       });
     } catch {

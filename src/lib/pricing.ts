@@ -10,8 +10,8 @@ export const ORIGIN_COORDINATES = { lat: 32.1558, lng: 34.8932 };
 export const VAT_RATE = 0.18; // מע"מ 18%
 
 export const EXCESS_KM_RATES = {
-  CRANE: 12,   // 12 ₪ לכל ק"מ חורג למנוף
-  FLATBED: 8   // 8 ₪ לכל ק"מ חורג למשאית חלוקה/פלטה
+  CRANE: 12, // 12 ₪ לכל ק"מ חורג למנוף
+  FLATBED: 8, // 8 ₪ לכל ק"מ חורג למשאית חלוקה/פלטה
 };
 
 export const BASE_ZONES = [
@@ -21,7 +21,7 @@ export const BASE_ZONES = [
     craneSku: "18050",
     craneBasePrice: 350,
     flatbedSku: "818050",
-    flatbedBasePrice: 200
+    flatbedBasePrice: 200,
   },
   {
     name: "כפר סבא - רעננה - פתח תקווה צפון",
@@ -29,7 +29,7 @@ export const BASE_ZONES = [
     craneSku: "18055",
     craneBasePrice: 420,
     flatbedSku: "818055",
-    flatbedBasePrice: 260
+    flatbedBasePrice: 260,
   },
   {
     name: "הרצליה - רמת השרון - תל אביב צפון",
@@ -37,7 +37,7 @@ export const BASE_ZONES = [
     craneSku: "18060",
     craneBasePrice: 500,
     flatbedSku: "818060",
-    flatbedBasePrice: 320
+    flatbedBasePrice: 320,
   },
   {
     name: "עמק חפר - נתניה - שרון רחוק",
@@ -45,20 +45,20 @@ export const BASE_ZONES = [
     craneSku: "18118",
     craneBasePrice: 650,
     flatbedSku: "818118",
-    flatbedBasePrice: 450
-  }
+    flatbedBasePrice: 450,
+  },
 ];
 
 export function calculateDeliveryPrice(
   deliveryType: "CRANE" | "FLATBED",
   distanceKm: number,
-  fuelSurchargePercent: number = 0
+  fuelSurchargePercent: number = 0,
 ): PricingQuote {
   const matchedZone =
-    BASE_ZONES.find((z) => distanceKm <= z.maxRadiusKm) ||
-    BASE_ZONES[BASE_ZONES.length - 1];
+    BASE_ZONES.find((z) => distanceKm <= z.maxRadiusKm) || BASE_ZONES[BASE_ZONES.length - 1];
 
-  const basePrice = deliveryType === "CRANE" ? matchedZone.craneBasePrice : matchedZone.flatbedBasePrice;
+  const basePrice =
+    deliveryType === "CRANE" ? matchedZone.craneBasePrice : matchedZone.flatbedBasePrice;
   const deliverySku = deliveryType === "CRANE" ? matchedZone.craneSku : matchedZone.flatbedSku;
 
   const excessKm = Math.max(0, distanceKm - matchedZone.maxRadiusKm);
@@ -81,6 +81,6 @@ export function calculateDeliveryPrice(
     fuelSurcharge: Number(fuelSurcharge.toFixed(2)),
     subtotal: Number(subtotal.toFixed(2)),
     vat: Number(vat.toFixed(2)),
-    grandTotal: Number(grandTotal.toFixed(2))
+    grandTotal: Number(grandTotal.toFixed(2)),
   };
 }

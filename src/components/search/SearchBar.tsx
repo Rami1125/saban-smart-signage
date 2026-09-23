@@ -17,7 +17,7 @@ interface SearchBarProps {
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSelectProduct,
-  placeholder = "חיפוש מק״ט, שם מוצר, לקוח או אתר פריקה (לפחות 3 אותיות)..."
+  placeholder = "חיפוש מק״ט, שם מוצר, לקוח או אתר פריקה (לפחות 3 אותיות)...",
 }) => {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -48,7 +48,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         (p) =>
           p.sku.includes(debouncedQuery) ||
           p.name.includes(debouncedQuery) ||
-          p.description.includes(debouncedQuery)
+          p.description.includes(debouncedQuery),
       ).slice(0, 5)
     : [];
 

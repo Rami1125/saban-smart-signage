@@ -35,7 +35,9 @@ export const ClientDetailsCard: React.FC<ClientDetailsCardProps> = ({ client }) 
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-slate-400 font-mono">מספר לקוח: {client.clientNumber}</p>
+          <p className="mt-0.5 text-xs text-slate-400 font-mono">
+            מספר לקוח: {client.clientNumber}
+          </p>
         </div>
       </div>
 

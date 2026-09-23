@@ -405,7 +405,9 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
                   key={thread.id}
                   className={cn(
                     "flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs",
-                    thread.id === activeId ? "bg-amber-400/20 font-bold text-amber-900 dark:text-amber-300" : "hover:bg-accent",
+                    thread.id === activeId
+                      ? "bg-amber-400/20 font-bold text-amber-900 dark:text-amber-300"
+                      : "hover:bg-accent",
                   )}
                 >
                   <button
@@ -707,7 +709,9 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                     <Sparkles className="size-3.5 text-amber-500" />
                     <span>בחר פעולה מהירה להתחלה:</span>
                   </p>
-                  <span className="text-[10px] text-muted-foreground font-semibold">לחץ לניתוב מהיר</span>
+                  <span className="text-[10px] text-muted-foreground font-semibold">
+                    לחץ לניתוב מהיר
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {QUICK_ACTIONS.map((action) => (
@@ -727,9 +731,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                         <span className="text-base group-hover:scale-110 transition-transform">
                           {action.icon}
                         </span>
-                        <span className="text-xs font-black text-foreground">
-                          {action.title}
-                        </span>
+                        <span className="text-xs font-black text-foreground">{action.title}</span>
                       </div>
                       <span className="text-[10px] font-medium text-muted-foreground leading-tight">
                         {action.subtitle}
@@ -836,7 +838,9 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                   ? "התלמיד 6 (אולם גבס)"
                   : "החרש 4 (מגרש ראשי)"}
               </span>
-              <span className="text-muted-foreground font-bold">הגעה: {pickupOrder.estimatedArrival}</span>
+              <span className="text-muted-foreground font-bold">
+                הגעה: {pickupOrder.estimatedArrival}
+              </span>
             </div>
             <div className="flex justify-between text-muted-foreground text-[11px]">
               <span>

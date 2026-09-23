@@ -345,19 +345,23 @@ export function normalizeSku(sku: string | undefined | null): string {
   return sku.toString().trim().replace(/\s+/g, "");
 }
 
-export function findProduct(skuOrList: Product[] | string | undefined | null, skuArg?: string | undefined | null): Product | undefined {
+export function findProduct(
+  skuOrList: Product[] | string | undefined | null,
+  skuArg?: string | undefined | null,
+): Product | undefined {
   if (Array.isArray(skuOrList)) {
     if (!skuArg) return undefined;
     const normalized = normalizeSku(skuArg);
     return skuOrList.find(
-      (p) => normalizeSku(p.sku) === normalized || p.sku?.toLowerCase() === normalized.toLowerCase()
+      (p) =>
+        normalizeSku(p.sku) === normalized || p.sku?.toLowerCase() === normalized.toLowerCase(),
     );
   }
   const sku = skuOrList;
   if (!sku) return undefined;
   const normalized = normalizeSku(sku);
   return PRODUCTS_CATALOG.find(
-    (p) => normalizeSku(p.sku) === normalized || p.sku.toLowerCase() === normalized.toLowerCase()
+    (p) => normalizeSku(p.sku) === normalized || p.sku.toLowerCase() === normalized.toLowerCase(),
   );
 }
 
@@ -372,7 +376,7 @@ export function searchProducts(query: string): Product[] {
     (p) =>
       p.sku.toLowerCase().includes(clean) ||
       p.name.toLowerCase().includes(clean) ||
-      p.description.toLowerCase().includes(clean)
+      p.description.toLowerCase().includes(clean),
   );
 }
 

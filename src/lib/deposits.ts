@@ -6,9 +6,9 @@
 import { DepositBreakdown } from "@/types";
 
 export const DEPOSIT_SKUS = {
-  BIG_BAG: "60002",       // בלה פקדון
+  BIG_BAG: "60002", // בלה פקדון
   WOODEN_PALLET: "60060", // משטח סבן פקדון
-  BLOCK_PALLET: "60006"   // משטח בלוקים פקדון
+  BLOCK_PALLET: "60006", // משטח בלוקים פקדון
 };
 
 export const DEPOSIT_UNIT_PRICE_ILS = 35.0; // 35 ₪ ליחידה
@@ -30,7 +30,7 @@ export function calculateOrderDeposits(params: {
       vatAmount: 0,
       totalDepositWithVat: 0,
       isExempt: true,
-      exemptionReason: "פטור מפקדונות: הובלת פלטה ללא פריקה (סחורה נפרקת ישירות ללא העמדת משטחים)"
+      exemptionReason: "פטור מפקדונות: הובלת פלטה ללא פריקה (סחורה נפרקת ישירות ללא העמדת משטחים)",
     };
   }
 
@@ -56,6 +56,6 @@ export function calculateOrderDeposits(params: {
     totalDepositBeforeVat,
     vatAmount: Number(vatAmount.toFixed(2)),
     totalDepositWithVat: Number(totalDepositWithVat.toFixed(2)),
-    isExempt: false
+    isExempt: false,
   };
 }

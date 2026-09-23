@@ -9,7 +9,7 @@ const SPREADSHEET_ID = "1Ie7gKql_EDdrIN9HqunJc9Ey5k0WXXfPRxs0Vp1Bs2c";
 
 export function getSheetCsvUrl(sheetName: string): string {
   return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
-    sheetName
+    sheetName,
   )}`;
 }
 
@@ -81,7 +81,7 @@ export async function fetchSheetOrders(sheetName: string = "הזמנות"): Prom
       assignedDriver: (row[9] as any) || "איסוף עצמי",
       status: (row[10] as any) || "ממתין לליקוט",
       wazeLink: row[11] || "",
-      createdTime: row[0] || new Date().toISOString()
+      createdTime: row[0] || new Date().toISOString(),
     });
   }
 

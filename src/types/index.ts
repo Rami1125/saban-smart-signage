@@ -11,7 +11,14 @@ export type WarehouseBranch =
 export interface Product {
   sku: string;
   name: string;
-  category: "אגרגטים" | "מליטה ודבקים" | "בלוקים וברזל" | "גבס ופרופילים" | "עצים וציוד" | "הובלות" | "כללי";
+  category:
+    | "אגרגטים"
+    | "מליטה ודבקים"
+    | "בלוקים וברזל"
+    | "גבס ופרופילים"
+    | "עצים וציוד"
+    | "הובלות"
+    | "כללי";
   basePrice: number;
   unitLabel: string;
   supplier: string;

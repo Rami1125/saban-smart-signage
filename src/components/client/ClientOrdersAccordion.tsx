@@ -23,11 +23,6 @@ export const ClientOrdersAccordion: React.FC<ClientOrdersAccordionProps> = ({ or
   }
 
   const toggle = (id: string) => {
-    setExpanded      </div>
-    );
-  }
-
-  const toggle = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 

@@ -165,21 +165,21 @@ export const TECHNICAL_RULES_BY_SKU: Record<string, TechnicalRule> = {
 
 export const TECHNICAL_RULES = Object.assign(
   {
-    STANDARD_WASTE_FACTOR: 1.10, // 10% פחת קבוע
-    CERAM_255_COVERAGE_M2: 3.9,   // שק 25 ק"ג סרם 255 מכסה כ-3.9 מ"ר
-    SIKA_107_COVERAGE_M2: 12.5,   // ערכה 25 ק"ג סיקה 107 מכסה כ-12.5 מ"ר בשתי שכבות
-    MAX_PRIVATE_VEHICLE_KG: 300,  // כושר נשיאה תקני לרכב פרטי / מסחרי קל
-    MAX_VAN_VEHICLE_KG: 700,      // כושר נשיאה לטנדר / מסחרית גדולה
-    PALLET_CAPACITY_CEMENT: 40,   // שקי מלט למשטח
-    PALLET_CAPACITY_PLASTER: 20,  // שקי טיח למשטח
+    STANDARD_WASTE_FACTOR: 1.1, // 10% פחת קבוע
+    CERAM_255_COVERAGE_M2: 3.9, // שק 25 ק"ג סרם 255 מכסה כ-3.9 מ"ר
+    SIKA_107_COVERAGE_M2: 12.5, // ערכה 25 ק"ג סיקה 107 מכסה כ-12.5 מ"ר בשתי שכבות
+    MAX_PRIVATE_VEHICLE_KG: 300, // כושר נשיאה תקני לרכב פרטי / מסחרי קל
+    MAX_VAN_VEHICLE_KG: 700, // כושר נשיאה לטנדר / מסחרית גדולה
+    PALLET_CAPACITY_CEMENT: 40, // שקי מלט למשטח
+    PALLET_CAPACITY_PLASTER: 20, // שקי טיח למשטח
   },
-  TECHNICAL_RULES_BY_SKU
+  TECHNICAL_RULES_BY_SKU,
 );
 
 export function estimateUnitWeightKg(
   sku?: string | null,
   unitWeightOrProduct?: string | number | Product | null,
-  productName?: string | null
+  productName?: string | null,
 ): number {
   if (typeof unitWeightOrProduct === "number" && Number.isFinite(unitWeightOrProduct)) {
     return unitWeightOrProduct;
@@ -210,7 +210,7 @@ export function estimateUnitWeightKg(
 export function checkWeightFeasibility(
   weightKg: number,
   vehicleType: string = "פרטי",
-  isPalletOrder: boolean = false
+  isPalletOrder: boolean = false,
 ): WeightFeasibilityResult {
   const v = vehicleType.toLowerCase();
   let maxWeight = TECHNICAL_RULES.MAX_PRIVATE_VEHICLE_KG;
@@ -219,17 +219,18 @@ export function checkWeightFeasibility(
   if (v.includes("טנדר") || v.includes("מסחרית") || v.includes("van") || v.includes("pickup")) {
     maxWeight = TECHNICAL_RULES.MAX_VAN_VEHICLE_KG;
     recommended = `טנדר / מסחרית גדולה`;
-  } else if (v.includes("משאית") || v.includes("עגלה") || v.includes("נגרר") || v.includes("truck")) {
+  } else if (
+    v.includes("משאית") ||
+    v.includes("עגלה") ||
+    v.includes("נגרר") ||
+    v.includes("truck")
+  ) {
     maxWeight = 5000;
     recommended = `משאית / עגלה נגררת (פריקה במלגזה)`;
   }
 
   const approvedCategory: "passenger" | "pickup_van" | "truck_trailer" =
-    weightKg > 700 || isPalletOrder
-      ? "truck_trailer"
-      : weightKg > 300
-        ? "pickup_van"
-        : "passenger";
+    weightKg > 700 || isPalletOrder ? "truck_trailer" : weightKg > 300 ? "pickup_van" : "passenger";
 
   const categoryLabel =
     approvedCategory === "truck_trailer"

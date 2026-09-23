@@ -162,3 +162,101 @@
 @utility animate-noa-pulse {
   animation: noa-pulse 2.4s ease-out infinite;
 }
+
+/* =========================================================================
+ * Lobby TV & Widescreen Signage: Dynamic Changing Slide Transitions
+ * ========================================================================= */
+
+@keyframes slide-push {
+  0% {
+    opacity: 0;
+    transform: translateX(45px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+@utility animate-slide-push {
+  animation: slide-push 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes zoom-depth {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@utility animate-zoom-depth {
+  animation: zoom-depth 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes shutter-wipe {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: scale(1);
+  }
+}
+
+@utility animate-shutter-wipe {
+  animation: shutter-wipe 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes flip-perspective {
+  0% {
+    opacity: 0;
+    transform: perspective(1200px) rotateY(-8deg) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1200px) rotateY(0deg) scale(1);
+  }
+}
+
+@utility animate-flip-perspective {
+  animation: flip-perspective 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes lift-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(35px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility animate-lift-rise {
+  animation: lift-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes sweep-shine {
+  0% {
+    transform: translateX(-150%) skewX(-25deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(250%) skewX(-25deg);
+    opacity: 0;
+  }
+}
+
+@utility animate-sweep-shine {
+  animation: sweep-shine 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

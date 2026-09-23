@@ -28,8 +28,8 @@ export async function appendOrderToSheet(order: SyncOrderPayload): Promise<boole
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "append_order",
-        order
-      })
+        order,
+      }),
     });
     const result = await response.json();
     return result.status === "success";
@@ -42,7 +42,7 @@ export async function appendOrderToSheet(order: SyncOrderPayload): Promise<boole
 export async function updateOrderStatusInSheet(
   orderId: string,
   status: string,
-  note?: string
+  note?: string,
 ): Promise<boolean> {
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
@@ -52,8 +52,8 @@ export async function updateOrderStatusInSheet(
         action: "update_status",
         orderId,
         status,
-        note
-      })
+        note,
+      }),
     });
     const result = await response.json();
     return result.status === "success";

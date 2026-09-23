@@ -474,9 +474,7 @@ function ProductPage() {
 
               {/* Price Tag */}
               <div className="text-left shrink-0">
-                <div className="text-xl sm:text-2xl font-black text-primary">
-                  שאל את הדלפק
-                </div>
+                <div className="text-xl sm:text-2xl font-black text-primary">שאל את הדלפק</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   ל{product.unitLabel} {product.unitWeight ? `(${product.unitWeight})` : ""}
                 </div>
@@ -732,9 +730,7 @@ function ProductPage() {
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">מחיר ועלות:</span>
-              <span className="font-bold text-primary">
-                שאל את הדלפק
-              </span>
+              <span className="font-bold text-primary">שאל את הדלפק</span>
             </div>
 
             {calculation.palletsNeeded && calculation.palletsNeeded > 0 && (
