@@ -25,13 +25,16 @@ import {
   Trash2,
   Tv,
   Users,
+  Film,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 
 import { NoaChat } from "@/components/noa/NoaChat";
 import { PWAInstallButton } from "@/components/pwa/PWAInstallButton";
+import { FullScreenVideoPlayer } from "@/components/signage/FullScreenVideoPlayer";
+import { VideoLibraryDrawer } from "@/components/signage/VideoLibraryDrawer";
 import { Button } from "@/components/ui/button";
 import {
   clearDispatchQueue,
@@ -40,6 +43,13 @@ import {
   whatsappLink,
 } from "@/lib/counter-dispatch";
 import { effectivePrice, findProduct, type Product } from "@/lib/products";
+import {
+  getStoredVideos,
+  getStoredVideoSettings,
+  saveStoredVideoSettings,
+  saveStoredVideos,
+} from "@/lib/videoLibrary";
+import type { LobbyVideoItem, VideoLibrarySettings } from "@/types/video";
 
 type SearchParams = {
   mode?: string;
