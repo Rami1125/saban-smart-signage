@@ -8,9 +8,12 @@ import {
   Clock,
   ExternalLink,
   Layers,
+  Maximize2,
   MessageCircle,
+  Minimize2,
   Package,
   Pause,
+  PhoneCall,
   Play,
   QrCode,
   RefreshCw,
@@ -21,6 +24,7 @@ import {
   Store,
   Trash2,
   Tv,
+  Users,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -37,7 +41,16 @@ import {
 } from "@/lib/counter-dispatch";
 import { effectivePrice, findProduct, type Product } from "@/lib/products";
 
+type SearchParams = {
+  mode?: string;
+  screen?: string;
+};
+
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): SearchParams => ({
+    mode: typeof search.mode === "string" ? search.mode : undefined,
+    screen: typeof search.screen === "string" ? search.screen : undefined,
+  }),
   loader: async () => {
     try {
       const { getLobbyProductsCached } = await import("@/lib/lobby.server");
@@ -50,10 +63,11 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type ScreenMode = "tv" | "pos";
+type ScreenMode = "tv" | "pos" | "widescreen";
 
 export function Index() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const loaderData = Route.useLoaderData();
 
   // Active products list (fetched strictly from Google Sheets 📦 קטלוג_מוצרים)
@@ -63,8 +77,12 @@ export function Index() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
-  const [selectedScreen, setSelectedScreen] = useState<string>("מסך לובי מרכזי");
-  const [viewMode, setViewMode] = useState<ScreenMode>("tv");
+  const [selectedScreen, setSelectedScreen] = useState<string>(
+    search.screen || "מסך לובי מרכזי",
+  );
+  const [viewMode, setViewMode] = useState<ScreenMode>(
+    search.mode === "widescreen" ? "widescreen" : "tv",
+  );
 
   // Counter POS queue state
   const [dispatchQueue, setDispatchQueue] = useState<DispatchOrder[]>([]);
@@ -73,6 +91,13 @@ export function Index() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Sync mode from search params if present
+  useEffect(() => {
+    if (search.mode === "widescreen") {
+      setViewMode("widescreen");
+    }
+  }, [search.mode]);
 
   // Fetch products strictly from Google Sheet 📦 קטלוג_מוצרים
   useEffect(() => {
@@ -115,9 +140,9 @@ export function Index() {
 
   const slideDurationSec = currentProduct?.displayDuration || 25;
 
-  // TV Rotation Timer and Progress Bar
+  // TV & Wide Screen Rotation Timer and Progress Bar
   useEffect(() => {
-    if (isPaused || viewMode !== "tv" || !products.length) return;
+    if (isPaused || (viewMode !== "tv" && viewMode !== "widescreen") || !products.length) return;
 
     const intervalMs = 100;
     const stepIncrement = (intervalMs / (slideDurationSec * 1000)) * 100;
@@ -174,6 +199,286 @@ export function Index() {
     toast.info("תור ההזמנות אופס בהצלחה");
   };
 
+  // =========================================================================
+  // VIEW MODE: WIDESCREEN LOBBY SIGNAGE (מסך רחב לשילוט לובי ללא כפתורים וללא POPUP)
+  // =========================================================================
+  if (viewMode === "widescreen") {
+    return (
+      <div
+        dir="rtl"
+        className="fixed inset-0 w-screen h-screen bg-slate-950 text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans z-50"
+      >
+        {/* Top Floating Mini-Bar: Branding & Invisible Hover Exit */}
+        <header className="w-full px-8 py-4 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-amber-500 text-slate-950 font-black text-2xl shadow-lg shadow-amber-500/20">
+              ח.ס
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-black tracking-tight text-white">
+                  ח. סבן חומרי בניין (1994) בע״מ
+                </h1>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-0.5 text-xs font-bold">
+                  שילוט דיגיטלי חכם • {selectedScreen}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                מרכז חומרי בניין, מליטה, ברזל, איטום וגבס • הוד השרון | שירות קבלנים ואנשי מקצוע
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Quick Return to Standard View (Subtle Exit Control) */}
+            <button
+              type="button"
+              onClick={() => setViewMode("tv")}
+              className="opacity-40 hover:opacity-100 transition-opacity flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60"
+              title="יציאה ממצב מסך רחב"
+            >
+              <Minimize2 className="size-4" />
+              <span>יציאה ממסך רחב</span>
+            </button>
+
+            <div className="text-left font-mono text-sm text-slate-400">
+              <span className="font-bold text-amber-400">
+                {products.length > 0 ? `${currentIndex + 1}/${products.length}` : "—"}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Top Subtle Slide Progress Line */}
+        <div className="w-full h-1.5 bg-slate-900 overflow-hidden shrink-0">
+          <div
+            className="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 transition-all duration-100 ease-linear shadow-xs"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        {/* Loading State in Wide Screen */}
+        {(!currentProduct || isLoading) && (
+          <main className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="size-20 rounded-3xl bg-amber-500/10 text-amber-400 flex items-center justify-center animate-pulse mb-6">
+              <Package className="size-10" />
+            </div>
+            <h2 className="text-2xl font-black text-white">טוען נתונים חיים מגיליון סבן...</h2>
+            <p className="text-sm text-slate-400 mt-2">סנכרון ישיר מול קטלוג מוצרים הרשמי</p>
+          </main>
+        )}
+
+        {/* Main Content Area: High-Impact Signage Stage */}
+        {currentProduct && !isLoading && (
+          <main className="flex-1 px-8 py-6 grid grid-cols-12 gap-8 items-stretch min-h-0 overflow-hidden">
+            {/* Left 8 Columns: Hero Packaging Visual, Spec Highlights & Sheet Data Row */}
+            <div className="col-span-8 flex flex-col justify-between rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900/90 via-slate-900/60 to-slate-950 p-8 shadow-2xl relative overflow-hidden">
+              {/* Product Badge Strip */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-sm px-4 py-1.5">
+                    {currentProduct.category}
+                  </span>
+                  <span className="text-sm font-bold text-slate-300">
+                    מותג: <strong className="text-white">{currentProduct.brand}</strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm bg-slate-800 text-amber-400 px-3 py-1 rounded-xl font-bold border border-slate-700">
+                    מק״ט: {currentProduct.sku}
+                  </span>
+                </div>
+              </div>
+
+              {/* Center Stage: Huge Product Photo + Names + Massive "שאל את הדלפק" */}
+              <div className="my-auto grid grid-cols-12 gap-8 items-center py-4">
+                {/* Product Photo Render */}
+                <div className="col-span-5 flex items-center justify-center">
+                  <div className="relative group">
+                    <img
+                      src={currentProduct.image}
+                      alt={currentProduct.name}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (!target.src.includes("/assets/product-adhesive-bag.jpg")) {
+                          target.src = "/assets/product-adhesive-bag.jpg";
+                        }
+                      }}
+                      className="max-h-[340px] w-auto object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.7)]"
+                    />
+                    {currentProduct.discountTag && (
+                      <div className="absolute -top-3 -right-3 rounded-2xl bg-amber-500 text-slate-950 font-black text-sm px-4 py-1.5 shadow-lg shadow-amber-500/30">
+                        {currentProduct.discountTag}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Product Typography & Global "Ask the Desk" Price Line */}
+                <div className="col-span-7 space-y-4">
+                  <h2 className="text-3xl lg:text-4xl font-black text-white leading-tight tracking-tight">
+                    {currentProduct.name}
+                  </h2>
+
+                  <p className="text-base text-slate-300 leading-relaxed font-normal">
+                    {currentProduct.marketingPhrase}
+                  </p>
+
+                  {/* PRICE REPLACEMENT: Globally shows "שאל את הדלפק" instead of price */}
+                  <div className="rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent p-5 border border-amber-500/40 space-y-1.5">
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
+                      מחיר ומבצעי קבלנים:
+                    </span>
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <span className="text-3xl lg:text-4xl font-black text-amber-400 tracking-tight">
+                        שאל את הדלפק
+                      </span>
+                      <span className="text-sm text-slate-300 font-medium">
+                        ל{currentProduct.unitLabel} {currentProduct.unitWeight ? `(${currentProduct.unitWeight})` : ""}
+                      </span>
+                    </div>
+                    <div className="text-xs text-amber-300/80 font-medium flex items-center gap-1.5 pt-0.5">
+                      <Users className="size-3.5" />
+                      <span>מחיר מיוחד לקבלנים בהתאמה לכמויות הפרויקט</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Technical Highlights Quick Strip */}
+              <div className="grid grid-cols-4 gap-3 pt-4 border-t border-slate-800">
+                <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 p-3 text-center">
+                  <span className="text-xs text-slate-400 block">כושר כיסוי</span>
+                  <span className="text-lg font-black text-white">
+                    {currentProduct.coveragePerUnitM2} מ״ר
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">
+                    ל{currentProduct.unitLabel}
+                  </span>
+                </div>
+
+                <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 p-3 text-center">
+                  <span className="text-xs text-slate-400 block">זמן פתוח / עבודה</span>
+                  <span className="text-lg font-black text-white truncate block">
+                    {currentProduct.openTime || currentProduct.potLife || "מיידי"}
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">בדלי ועל מצע</span>
+                </div>
+
+                <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 p-3 text-center">
+                  <span className="text-xs text-slate-400 block">זמן ייבוש</span>
+                  <span className="text-lg font-black text-white truncate block">
+                    {currentProduct.dryingTime?.split(",")[0] || "24 שעות"}
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">הליכה / שכבה הבאה</span>
+                </div>
+
+                <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 p-3 text-center">
+                  <span className="text-xs text-slate-400 block">תקן ישראלי/אירופי</span>
+                  <span className="text-lg font-black text-white truncate block">
+                    {currentProduct.standard || "תקן סבן"}
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">בדיקות מעבדה</span>
+                </div>
+              </div>
+
+              {/* SPEC DETAILS ROW FROM SHEET (שורת תוכן מנתוני מוצר שמוצג במסך מגליון) */}
+              <div className="mt-4 rounded-2xl bg-slate-950/70 border border-slate-800 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3 text-xs text-slate-300">
+                  <span className="font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                    מפרט מגליון:
+                  </span>
+                  <span>
+                    {currentProduct.coverageNote ||
+                      currentProduct.marketingPhrase ||
+                      `${currentProduct.name} — תקני רשמי`}
+                  </span>
+                  {currentProduct.applicationMethod && (
+                    <span className="text-slate-400">
+                      • יישום: {currentProduct.applicationMethod}
+                    </span>
+                  )}
+                  {currentProduct.substrates && currentProduct.substrates.length > 0 && (
+                    <span className="text-slate-400">
+                      • מצעים: {currentProduct.substrates.join(", ")}
+                    </span>
+                  )}
+                </div>
+
+                {/* CALL TO ACTION: שאל את נציג הדלפק */}
+                <div className="flex items-center gap-2 text-xs font-black text-amber-400 bg-amber-500/15 border border-amber-500/30 px-3.5 py-1.5 rounded-xl">
+                  <PhoneCall className="size-4 animate-bounce" />
+                  <span>שאל את נציג הדלפק לפרטים מלאים והזמנה</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right 4 Columns: Massive High-Contrast QR Code for Mobile */}
+            <div className="col-span-4 flex flex-col justify-between rounded-3xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-8 shadow-2xl text-center">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-4 py-1.5 text-xs font-bold">
+                  <QrCode className="size-4" />
+                  <span>סריקה מהירה בנייד</span>
+                </div>
+                <h3 className="text-2xl lg:text-3xl font-black text-white">
+                  סרוק עכשיו למפרט טכני
+                </h3>
+                <p className="text-sm text-slate-400 max-w-xs mx-auto">
+                  פתח את מצלמת הנייד וכיוון לקוד: גישה ישירה למפרט, מחשבון כמויות וייעוץ
+                </p>
+              </div>
+
+              {/* Giant QR Card */}
+              <div className="my-auto flex flex-col items-center justify-center">
+                <div className="rounded-3xl bg-white p-6 shadow-2xl flex items-center justify-center">
+                  {isClient ? (
+                    <QRCodeSVG value={qrUrl} size={250} level="Q" includeMargin={false} />
+                  ) : (
+                    <div className="size-[250px] rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-400">
+                      <QrCode className="size-20 opacity-40 animate-pulse" />
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs text-slate-400 mt-4 font-mono font-bold tracking-wider">
+                  מק״ט: {currentProduct.sku} • {selectedScreen}
+                </span>
+              </div>
+
+              {/* Bottom Large Prompt */}
+              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 p-4 text-center">
+                <p className="text-base font-black text-amber-400">
+                  יש לך שאלה? שאל את נציג הדלפק
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  הנציגים שלנו כאן לרשותך להתאמת חומרים, כמויות ומחיר קבלן
+                </p>
+              </div>
+            </div>
+          </main>
+        )}
+
+        {/* Bottom Ticker Line: Continuous Smooth Product Strip */}
+        <footer className="w-full px-8 py-3 bg-slate-950 border-t border-slate-900 flex items-center justify-between text-xs text-slate-400 shrink-0">
+          <div className="flex items-center gap-6">
+            <span className="font-bold text-slate-300">
+              ח. סבן הוד השרון: סניף החרש 4 (מגרש ראשי) | סניף התלמיד 6 (גבס וצבע)
+            </span>
+            <span className="hidden md:inline text-slate-500">
+              • מחיר המוצר: שאל את הדלפק לקבלת הצעת מחיר מדויקת
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-amber-400 font-bold">
+              החלפת שקופית כל {slideDurationSec} שניות
+            </span>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div
       dir="rtl"
@@ -204,6 +509,17 @@ export function Index() {
 
           {/* Mode Switcher Tabs */}
           <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-2xl border">
+            {/* WIDE SCREEN BUTTON: כפתור "מסך רחב" לשילוט לובי */}
+            <button
+              type="button"
+              onClick={() => setViewMode("widescreen")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition-all shadow-xs"
+              title="הצג דף מסך רחב לשילוט לובי ללא כפתורים וללא POPUP"
+            >
+              <Maximize2 className="size-3.5 text-slate-950" />
+              <span>מסך רחב</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setViewMode("tv")}
@@ -367,25 +683,22 @@ export function Index() {
                     {currentProduct.marketingPhrase}
                   </p>
 
-                  {/* Pricing Box */}
+                  {/* Pricing Box - Globally replaces price with "שאל את הדלפק" */}
                   <div className="rounded-2xl bg-muted/60 p-4 border space-y-1">
                     <span className="text-xs font-bold text-muted-foreground block">
                       מחיר קבלנים ומבצע:
                     </span>
                     <div className="flex items-baseline gap-3">
-                      <span className="text-3xl sm:text-4xl font-black text-foreground">
-                        ₪{price}
+                      <span className="text-2xl sm:text-3xl font-black text-primary">
+                        שאל את הדלפק
                       </span>
                       <span className="text-xs text-muted-foreground">
                         ל{currentProduct.unitLabel} ({currentProduct.unitWeight})
                       </span>
                     </div>
-                    {hasDiscount && (
-                      <div className="text-xs text-muted-foreground">
-                        מחיר מחירון רגיל:{" "}
-                        <span className="line-through">₪{currentProduct.price}</span>
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground">
+                      פנה לנציג הדלפק לקבלת מחיר מעודכן ומבצעי כמויות
+                    </div>
                   </div>
                 </div>
               </div>
@@ -424,6 +737,18 @@ export function Index() {
                     {currentProduct.standard || "תקן סבן"}
                   </span>
                   <span className="text-[10px] text-muted-foreground block">בדיקות מעבדה</span>
+                </div>
+              </div>
+
+              {/* Row from Product Details Sheet with Call to Action to Desk Rep */}
+              <div className="mt-3 rounded-2xl bg-primary/10 border border-primary/20 p-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-xs text-foreground font-medium">
+                  <span className="font-bold text-primary">מפרט מוצר מהגליון:</span>
+                  <span>{currentProduct.coverageNote || currentProduct.marketingPhrase}</span>
+                </div>
+                <div className="text-xs font-bold text-primary flex items-center gap-1.5">
+                  <PhoneCall className="size-3.5" />
+                  <span>שאל את נציג הדלפק</span>
                 </div>
               </div>
             </div>

@@ -474,22 +474,12 @@ function ProductPage() {
 
               {/* Price Tag */}
               <div className="text-left shrink-0">
-                <div className="text-2xl font-black text-foreground">
-                  ₪{currentPrice}
-                  <span className="text-xs font-normal text-muted-foreground mr-1">
-                    /{product.unitLabel}
-                  </span>
+                <div className="text-xl sm:text-2xl font-black text-primary">
+                  שאל את הדלפק
                 </div>
-                {hasDiscount && (
-                  <div className="text-xs text-muted-foreground line-through">
-                    מחירון: ₪{product.price}
-                  </div>
-                )}
-                {product.unitWeight && (
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {product.unitWeight}
-                  </div>
-                )}
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  ל{product.unitLabel} {product.unitWeight ? `(${product.unitWeight})` : ""}
+                </div>
               </div>
             </div>
 
@@ -529,6 +519,17 @@ function ProductPage() {
                 <span className="text-[10px] text-muted-foreground block">
                   {product.palletDeposit || "ללא פקדון"}
                 </span>
+              </div>
+            </div>
+
+            {/* Spec details row from sheet with prompt to ask desk representative */}
+            <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-xs text-foreground font-medium">
+                <span className="font-bold text-primary">נתוני מוצר מהגליון:</span>
+                <span>{product.coverageNote || product.marketingPhrase || product.name}</span>
+              </div>
+              <div className="text-xs font-bold text-primary flex items-center gap-1.5">
+                <span>שאל את נציג הדלפק</span>
               </div>
             </div>
           </div>
@@ -730,9 +731,9 @@ function ProductPage() {
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">עלות מוערכת (לפני מע״מ):</span>
-              <span className="font-bold text-foreground">
-                ₪{calculation.estimatedCost.toLocaleString()}
+              <span className="text-muted-foreground">מחיר ועלות:</span>
+              <span className="font-bold text-primary">
+                שאל את הדלפק
               </span>
             </div>
 

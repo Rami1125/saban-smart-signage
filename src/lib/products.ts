@@ -3,7 +3,54 @@
 // Version: 3.1.0 (Added normalizeSku, findProduct, and robust lookup)
 // ============================================================================
 
-import { Product } from "@/types";
+import { Product as BaseProduct, WarehouseBranch } from "@/types";
+
+export type Companion = {
+  sku?: string;
+  name: string;
+  reason: string;
+};
+
+export interface Product extends Partial<BaseProduct> {
+  sku: string;
+  name: string;
+  category: any;
+  basePrice: number;
+  unitLabel: string;
+  supplier?: string;
+  stockQuantity?: number;
+  warehouseLocation?: string;
+  preferredWarehouse?: WarehouseBranch | string;
+  description?: string;
+  image?: string;
+  unitWeightKg?: number;
+  requiresPalletDeposit?: boolean;
+  palletCapacity?: number;
+  // Extended properties from Google Sheets / Lobby Signage
+  brand?: string;
+  price?: number;
+  salePrice?: number;
+  discountTag?: string;
+  marketingPhrase?: string;
+  mediaUrl?: string;
+  tdsUrl?: string;
+  unitWeight?: string;
+  unitsPerPallet?: number;
+  palletDeposit?: string;
+  coveragePerUnitM2?: number;
+  coverageNote?: string;
+  openTime?: string;
+  potLife?: string;
+  dryingTime?: string;
+  applicationMethod?: string;
+  standard?: string;
+  substrates?: string[];
+  companions?: Companion[];
+  displayDuration?: number;
+  isActive?: boolean;
+}
+
+export { type Product };
 
 export const PRODUCTS_CATALOG: Product[] = [
   // אגרגטים ושקים גדולים
@@ -298,7 +345,15 @@ export function normalizeSku(sku: string | undefined | null): string {
   return sku.toString().trim().replace(/\s+/g, "");
 }
 
-export function findProduct(sku: string | undefined | null): Product | undefined {
+export function findProduct(skuOrList: Product[] | string | undefined | null, skuArg?: string | undefined | null): Product | undefined {
+  if (Array.isArray(skuOrList)) {
+    if (!skuArg) return undefined;
+    const normalized = normalizeSku(skuArg);
+    return skuOrList.find(
+      (p) => normalizeSku(p.sku) === normalized || p.sku?.toLowerCase() === normalized.toLowerCase()
+    );
+  }
+  const sku = skuOrList;
   if (!sku) return undefined;
   const normalized = normalizeSku(sku);
   return PRODUCTS_CATALOG.find(
