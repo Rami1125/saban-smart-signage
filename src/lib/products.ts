@@ -14,7 +14,7 @@ export type Companion = {
 export interface Product extends Partial<BaseProduct> {
   sku: string;
   name: string;
-  category: any;
+  category: BaseProduct["category"] | string;
   basePrice: number;
   unitLabel: string;
   supplier?: string;

@@ -61,16 +61,24 @@ export function dispatchToCounter(params: DispatchCounterParams) {
   }
 
   // הפעלת התראת OneSignal במידה וה-SDK נטען בדפדפן
-  if (typeof window !== "undefined" && (window as any).OneSignal) {
-    try {
-      (window as any).OneSignal.push(() => {
-        (window as any).OneSignal.sendSelfNotification(
-          "ח. סבן — הזמנת איסוף חדשה 📦",
-          `הזמנה עבור ${params.productName} (${params.quantity} ${params.unitLabel}) ממתינה לליקוט בדלפק.`,
-        );
-      });
-    } catch {
-      //
+  if (typeof window !== "undefined") {
+    const win = window as unknown as {
+      OneSignal?: {
+        push: (cb: () => void) => void;
+        sendSelfNotification: (title: string, message: string) => void;
+      };
+    };
+    if (win.OneSignal) {
+      try {
+        win.OneSignal.push(() => {
+          win.OneSignal?.sendSelfNotification(
+            "ח. סבן — הזמנת איסוף חדשה 📦",
+            `הזמנה עבור ${params.productName} (${params.quantity} ${params.unitLabel}) ממתינה לליקוט בדלפק.`,
+          );
+        });
+      } catch {
+        //
+      }
     }
   }
 }

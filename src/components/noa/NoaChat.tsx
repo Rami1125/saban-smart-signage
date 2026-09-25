@@ -16,9 +16,17 @@ import {
   Maximize2,
   Minimize2,
   Sparkles,
+  Palette,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import {
+  ColorPaletteDrawer,
+  ChatColorCard,
+  findColorByCode,
+  type ColorShade,
+} from "@/components/paint";
 
 import {
   Conversation,
@@ -461,6 +469,8 @@ function NoaPane({
 }) {
   const product = rawProduct ?? FALLBACK_PRODUCT;
   const [input, setInput] = useState("");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [activeColorOverrides, setActiveColorOverrides] = useState<Record<string, ColorShade>>({});
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const transport = useMemo(
@@ -495,6 +505,13 @@ function NoaPane({
     if (!text || busy) return;
     setInput("");
     await sendMessage({ text });
+  };
+
+  const handleSelectPaletteColor = async (shade: ColorShade) => {
+    setPaletteOpen(false);
+    await submit(
+      `בחרתי מתוך מניפת הגוונים את הגוון ${shade.name} (${shade.code}, ${shade.brand}) [COLOR_CARD:${shade.code}]. תוכלי לפרט על כושר הכיסוי, סדרות מומלצות והתאמה לקיר?`,
+    );
   };
 
   const dispatchPickup = async (pOrder: SelfPickupOrder) => {
@@ -719,7 +736,13 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                       key={action.id}
                       type="button"
                       disabled={busy}
-                      onClick={() => void submit(action.prompt)}
+                      onClick={() => {
+                        if (action.id === "paint") {
+                          setPaletteOpen(true);
+                        } else {
+                          void submit(action.prompt);
+                        }
+                      }}
                       className="group relative flex flex-col items-start rounded-xl border-2 border-border/80 bg-card p-2.5 text-right transition-all hover:border-amber-500 hover:bg-amber-50/20 active:scale-[0.98] shadow-xs"
                     >
                       {action.badge && (
@@ -745,47 +768,81 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
           {messages.map((message) => {
             const rawText = messageText(message);
             if (!rawText) return null;
-            const text = stripJsonFromText(rawText);
-            if (!text) return null;
+            const textWithoutJson = stripJsonFromText(rawText);
+            if (!textWithoutJson) return null;
+
+            // בדיקת כרטיסיית גוון צבע אינטראקטיבית
+            const colorCardMatch = textWithoutJson.match(/\[COLOR_CARD:([^\]]+)\]/);
+            const colorCode = colorCardMatch ? colorCardMatch[1]?.trim() : null;
+            const text = textWithoutJson.replace(/\[COLOR_CARD:[^\]]+\]/g, "").trim();
+
+            const foundColor = colorCode
+              ? activeColorOverrides[message.id] || findColorByCode(colorCode)
+              : null;
 
             const isUser = message.role === "user";
 
             return (
-              <div
-                key={message.id}
-                className={cn("flex w-full my-1.5", isUser ? "justify-start" : "justify-end")}
-              >
-                {isUser ? (
-                  // בועת לקוח - עיצוב צהוב סבן מובטח ללא תלות ברקע כהה
+              <React.Fragment key={message.id}>
+                {text && (
                   <div
-                    style={{
-                      backgroundColor: "#f59e0b",
-                      color: "#020617",
-                    }}
-                    className="max-w-[85%] rounded-2xl rounded-tr-xs px-4 py-2.5 shadow-md border-2 border-amber-600/40 text-slate-950 font-bold text-sm leading-relaxed"
+                    className={cn("flex w-full my-1.5", isUser ? "justify-start" : "justify-end")}
                   >
-                    <p
-                      className="whitespace-pre-line m-0 font-bold select-text"
-                      style={{ color: "#020617" }}
-                    >
-                      {text}
-                    </p>
-                  </div>
-                ) : (
-                  // בועת נועה - עיצוב דלפק לבן ונקי עם פונט חד, קריא וניגודיות מלאה
-                  <div
-                    style={{
-                      backgroundColor: "#ffffff",
-                      color: "#0f172a",
-                    }}
-                    className="max-w-[92%] rounded-2xl rounded-tl-xs px-4 py-3 shadow-sm border border-slate-200 text-slate-900 text-sm leading-relaxed"
-                  >
-                    <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_p]:text-slate-900 [&_strong]:font-black [&_strong]:text-slate-950 [&_li]:font-medium [&_li]:text-slate-900 [&_img]:rounded-xl [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-md [&_img]:my-2.5 [&_img]:max-h-56 [&_img]:w-auto [&_img]:object-contain [&_img]:bg-white [&_img]:p-1.5">
-                      {text}
-                    </MessageResponse>
+                    {isUser ? (
+                      // בועת לקוח - עיצוב צהוב סבן מובטח ללא תלות ברקע כהה
+                      <div
+                        style={{
+                          backgroundColor: "#f59e0b",
+                          color: "#020617",
+                        }}
+                        className="max-w-[85%] rounded-2xl rounded-tr-xs px-4 py-2.5 shadow-md border-2 border-amber-600/40 text-slate-950 font-bold text-sm leading-relaxed"
+                      >
+                        <p
+                          className="whitespace-pre-line m-0 font-bold select-text"
+                          style={{ color: "#020617" }}
+                        >
+                          {text}
+                        </p>
+                      </div>
+                    ) : (
+                      // בועת נועה - עיצוב דלפק לבן ונקי עם פונט חד, קריא וניגודיות מלאה
+                      <div
+                        style={{
+                          backgroundColor: "#ffffff",
+                          color: "#0f172a",
+                        }}
+                        className="max-w-[92%] rounded-2xl rounded-tl-xs px-4 py-3 shadow-sm border border-slate-200 text-slate-900 text-sm leading-relaxed"
+                      >
+                        <MessageResponse className="[&_p]:leading-relaxed [&_p]:font-medium [&_p]:text-slate-900 [&_strong]:font-black [&_strong]:text-slate-950 [&_li]:font-medium [&_li]:text-slate-900 [&_img]:rounded-xl [&_img]:border [&_img]:border-slate-200 [&_img]:shadow-md [&_img]:my-2.5 [&_img]:max-h-56 [&_img]:w-auto [&_img]:object-contain [&_img]:bg-white [&_img]:p-1.5">
+                          {text}
+                        </MessageResponse>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+
+                {/* כרטיסיית גוון אינטראקטיבית מתוך המניפה */}
+                {foundColor && (
+                  <div className="w-full flex justify-center my-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <ChatColorCard
+                      color={foundColor}
+                      onColorChange={(newColor) => {
+                        setActiveColorOverrides((prev) => ({
+                          ...prev,
+                          [message.id]: newColor,
+                        }));
+                        void submit(
+                          `אני רוצה להחליף לגוון ${newColor.name} (${newColor.code}) מבית ${newColor.brand} [COLOR_CARD:${newColor.code}].`,
+                        );
+                      }}
+                      onOpenPalette={() => setPaletteOpen(true)}
+                      onOrderSuccess={(summary) => {
+                        void submit(summary);
+                      }}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
           {busy && (
@@ -991,7 +1048,21 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
         </div>
       )}
 
-      <div className="border-t bg-card px-3 py-2">
+      <div className="border-t bg-card px-3 py-2 space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all"
+          >
+            <Palette className="size-3.5 text-amber-600 dark:text-amber-400" />
+            <span>מניפת גוונים (טמבור & נירלט)</span>
+          </button>
+          <span className="text-[10px] text-muted-foreground font-semibold">
+            התאמת גיוון ממוחשב 🎨
+          </span>
+        </div>
+
         <PromptInput
           onSubmit={(_message, event) => {
             event.preventDefault();
@@ -1011,6 +1082,12 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
           </PromptInputFooter>
         </PromptInput>
       </div>
+
+      <ColorPaletteDrawer
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onSelectColor={handleSelectPaletteColor}
+      />
     </>
   );
 }

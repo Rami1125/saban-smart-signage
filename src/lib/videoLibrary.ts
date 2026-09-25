@@ -69,7 +69,9 @@ export function getStoredVideoSettings(): VideoLibrarySettings {
   }
 }
 
-export function saveStoredVideoSettings(settings: Partial<VideoLibrarySettings>): VideoLibrarySettings {
+export function saveStoredVideoSettings(
+  settings: Partial<VideoLibrarySettings>,
+): VideoLibrarySettings {
   if (typeof window === "undefined") return DEFAULT_VIDEO_SETTINGS;
   const current = getStoredVideoSettings();
   const updated = { ...current, ...settings };

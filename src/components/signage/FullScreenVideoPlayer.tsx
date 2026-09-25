@@ -245,13 +245,9 @@ export const FullScreenVideoPlayer: React.FC<FullScreenVideoPlayerProps> = ({
               <span className="rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 text-xs font-bold">
                 {video.category}
               </span>
-              <h3 className="text-2xl font-black text-white drop-shadow-md">
-                {video.title}
-              </h3>
+              <h3 className="text-2xl font-black text-white drop-shadow-md">{video.title}</h3>
             </div>
-            <p className="text-sm text-slate-300 font-medium">
-              {video.subtitle}
-            </p>
+            <p className="text-sm text-slate-300 font-medium">{video.subtitle}</p>
           </div>
 
           {/* Time Countdown & Return Notice */}

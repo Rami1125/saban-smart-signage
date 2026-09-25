@@ -9,16 +9,14 @@ const STATIC_ASSETS = [
   "/manifest.json",
   "/assets/noa-avatar.png",
   "/assets/icon-192.png",
-  "/assets/icon-512.png"
+  "/assets/icon-512.png",
 ];
 
 // OneSignal Web Push SDK
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
   self.skipWaiting();
 });
 
@@ -28,9 +26,9 @@ self.addEventListener("activate", (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) return caches.delete(key);
-        })
+        }),
       );
-    })
+    }),
   );
   self.clients.claim();
 });
@@ -49,7 +47,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request)),
     );
     return;
   }
@@ -66,7 +64,7 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
       );
-    })
+    }),
   );
 });
 
@@ -84,8 +82,8 @@ self.addEventListener("push", (event) => {
     data: payload.data || {},
     actions: [
       { action: "open_chat", title: "פתח צ'אט נועה" },
-      { action: "close", title: "סגור" }
-    ]
+      { action: "close", title: "סגור" },
+    ],
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -99,7 +97,7 @@ self.addEventListener("notificationclick", (event) => {
           if (client.url === "/" && "focus" in client) return client.focus();
         }
         if (clients.openWindow) return clients.openWindow("/");
-      })
+      }),
     );
   }
 });

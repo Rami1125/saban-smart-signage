@@ -56,7 +56,9 @@ export const ClientOrdersAccordion: React.FC<ClientOrdersAccordionProps> = ({ or
                   </p>
                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
                     <Calendar className="size-3" />
-                    {order.createdTime ? new Date(order.createdTime).toLocaleDateString("he-IL") : "היום"}
+                    {order.createdTime
+                      ? new Date(order.createdTime).toLocaleDateString("he-IL")
+                      : "היום"}
                   </p>
                 </div>
               </div>

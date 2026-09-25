@@ -78,8 +78,8 @@ export async function fetchSheetOrders(sheetName: string = "הזמנות"): Prom
       palletDeposits: Number(row[8]) || 0,
       deliveryType: "SELF_PICKUP",
       deliverySku: "818050",
-      assignedDriver: (row[9] as any) || "איסוף עצמי",
-      status: (row[10] as any) || "ממתין לליקוט",
+      assignedDriver: (row[9] as DeliveryOrder["assignedDriver"]) || "איסוף עצמי",
+      status: (row[10] as DeliveryOrder["status"]) || "מוכן בדלפק",
       wazeLink: row[11] || "",
       createdTime: row[0] || new Date().toISOString(),
     });

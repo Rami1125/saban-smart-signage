@@ -13,7 +13,7 @@ export interface SyncOrderPayload {
   clientName: string;
   originWarehouse: string;
   destinationAddress: string;
-  items: any[];
+  items: unknown[];
   bigBagDeposits?: number;
   palletDeposits?: number;
   assignedDriver?: string;

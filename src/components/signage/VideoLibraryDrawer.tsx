@@ -1,8 +1,5 @@
 import React, { useState } from "react";
-import {
-  LobbyVideoItem,
-  VideoLibrarySettings,
-} from "../../types/video";
+import { LobbyVideoItem, VideoLibrarySettings } from "../../types/video";
 import {
   Film,
   Play,
@@ -214,8 +211,10 @@ export const VideoLibraryDrawer: React.FC<VideoLibraryDrawerProps> = ({
                 <Sparkles className="size-5 text-amber-600 shrink-0" />
                 <p className="text-xs text-slate-800 leading-relaxed font-medium">
                   <strong>מצב פעיל:</strong> הסרטונים מנוגנים במסך מלא בין כל{" "}
-                  <strong className="text-amber-700">{settings.videoIntervalSlides} שקופיות מוצר</strong>.
-                  ניתן לבחור אילו סרטונים ייכללו בסבב או ללחוץ על "נגן עכשיו" להקרנה מיידית.
+                  <strong className="text-amber-700">
+                    {settings.videoIntervalSlides} שקופיות מוצר
+                  </strong>
+                  . ניתן לבחור אילו סרטונים ייכללו בסבב או ללחוץ על "נגן עכשיו" להקרנה מיידית.
                 </p>
               </div>
 
@@ -413,7 +412,9 @@ export const VideoLibraryDrawer: React.FC<VideoLibraryDrawerProps> = ({
                 onClick={handleAspectToggle}
                 className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-300 hover:bg-slate-50 transition-colors"
               >
-                {settings.aspectMode === "cover" ? "מילוי מסך מלא (Cover)" : "התאמת שוליים (Contain)"}
+                {settings.aspectMode === "cover"
+                  ? "מילוי מסך מלא (Cover)"
+                  : "התאמת שוליים (Contain)"}
               </button>
             </div>
           </div>
@@ -426,11 +427,10 @@ export const VideoLibraryDrawer: React.FC<VideoLibraryDrawerProps> = ({
               <div className="size-14 rounded-2xl bg-amber-500/20 text-amber-600 flex items-center justify-center mx-auto">
                 <Upload className="size-7" />
               </div>
-              <h3 className="text-base font-black text-slate-950">
-                טעינת קובץ וידאו מקומי מהמחשב
-              </h3>
+              <h3 className="text-base font-black text-slate-950">טעינת קובץ וידאו מקומי מהמחשב</h3>
               <p className="text-xs text-slate-600 max-w-md mx-auto">
-                בחר קובץ MP4 או WebM מהמחשב שלך. הקובץ יישמר במאגר המקומי ויוכל להשתלב ברוטציית מסכי השילוט של סבן.
+                בחר קובץ MP4 או WebM מהמחשב שלך. הקובץ יישמר במאגר המקומי ויוכל להשתלב ברוטציית מסכי
+                השילוט של סבן.
               </p>
 
               <div className="max-w-md mx-auto space-y-3 pt-2">
@@ -444,9 +444,7 @@ export const VideoLibraryDrawer: React.FC<VideoLibraryDrawerProps> = ({
 
                 <select
                   value={uploadCategory}
-                  onChange={(e) =>
-                    setUploadCategory(e.target.value as LobbyVideoItem["category"])
-                  }
+                  onChange={(e) => setUploadCategory(e.target.value as LobbyVideoItem["category"])}
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:outline-hidden focus:border-amber-500 bg-white"
                 >
                   <option value="תדמית ומיתוג">תדמית ומיתוג</option>
