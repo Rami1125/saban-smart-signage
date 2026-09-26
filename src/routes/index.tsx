@@ -981,7 +981,13 @@ export function Index() {
             </div>
 
             {/* Left/Main Column: Product Packaging Render & Badges */}
-            <div className="lg:col-span-7 flex flex-col justify-between rounded-3xl border border-slate-300/90 bg-white p-6 shadow-xl relative overflow-hidden">
+            <div
+              className="lg:col-span-7 flex flex-col justify-between rounded-3xl border border-slate-300/90 bg-white p-6 shadow-xl relative overflow-hidden"
+              style={{
+                height: "733px",
+                width: "717.333px",
+              }}
+            >
               {/* Product Category & Brand Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -1003,7 +1009,15 @@ export function Index() {
               {/* Product Visual & Headline */}
               <div className="my-6 grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
                 {/* Deep Dark Podium for Product Visual */}
-                <div className="sm:col-span-5 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl relative overflow-hidden group min-h-[280px]">
+                <div
+                  className="sm:col-span-5 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl relative overflow-hidden group min-h-[280px]"
+                  style={{
+                    marginRight: "-16px",
+                    marginBottom: "45px",
+                    marginTop: "6px",
+                    marginLeft: "-22px",
+                  }}
+                >
                   {/* Subtle Amber Spotlight Glow */}
                   <div className="absolute inset-0 bg-radial from-amber-500/20 via-transparent to-transparent pointer-events-none" />
                   <div className="relative z-10 transition-transform duration-700 ease-out hover:scale-105">
@@ -1026,7 +1040,12 @@ export function Index() {
                   </div>
                 </div>
 
-                <div className="sm:col-span-7 space-y-4">
+                <div
+                  className="sm:col-span-7 space-y-4"
+                  style={{
+                    height: "136.333px",
+                  }}
+                >
                   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-950 leading-tight tracking-tight">
                     {currentProduct.name}
                   </h2>
@@ -1114,7 +1133,15 @@ export function Index() {
             </div>
 
             {/* Right Column: Giant QR Code & Mobile Prompt on Deep Contrast Dark Backdrop */}
-            <div className="lg:col-span-5 flex flex-col justify-between rounded-3xl border border-slate-800 bg-gradient-to-b from-[#121B2B] via-[#0B1320] to-[#070D18] text-white p-6 sm:p-8 shadow-2xl relative overflow-hidden text-center">
+            <div
+              className="lg:col-span-5 flex flex-col justify-between rounded-3xl border border-slate-800 bg-gradient-to-b from-[#121B2B] via-[#0B1320] to-[#070D18] text-white p-6 sm:p-8 shadow-2xl relative overflow-hidden text-center"
+              style={{
+                height: "729px",
+                width: "467.667px",
+                marginLeft: "-18px",
+                marginRight: "36px",
+              }}
+            >
               {/* Corner Ambient Glow */}
               <div className="absolute top-0 right-0 size-36 bg-[#F97316]/15 rounded-full blur-3xl pointer-events-none" />
 
