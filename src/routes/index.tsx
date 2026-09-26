@@ -32,6 +32,9 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 
 import { NoaChat } from "@/components/noa/NoaChat";
+import { NoaAvatar } from "@/components/noa/NoaAvatar";
+import { SabanLogo } from "@/components/brand/SabanLogo";
+import { useScreenDimensions } from "@/hooks/useScreenDimensions";
 import { PWAInstallButton } from "@/components/pwa/PWAInstallButton";
 import { FullScreenVideoPlayer } from "@/components/signage/FullScreenVideoPlayer";
 import { VideoLibraryDrawer } from "@/components/signage/VideoLibraryDrawer";
@@ -48,6 +51,7 @@ import {
   getStoredVideoSettings,
   saveStoredVideoSettings,
   saveStoredVideos,
+  preloadVideo,
 } from "@/lib/videoLibrary";
 import type { LobbyVideoItem, VideoLibrarySettings } from "@/types/video";
 
@@ -125,6 +129,21 @@ export function Index() {
     search.mode === "widescreen" ? "widescreen" : "tv",
   );
 
+  // Dynamic Viewport Detection & Ultra-wide scaling
+  const screenDimensions = useScreenDimensions();
+
+  // Commercial / Interstitial Ad Rotation State
+  const [consecutiveProductCount, setConsecutiveProductCount] = useState<number>(0);
+  const [isCommercialActive, setIsCommercialActive] = useState<boolean>(false);
+  const [activeCommercialVideo, setActiveCommercialVideo] = useState<LobbyVideoItem | null>(null);
+  const [activeMediaSource, setActiveMediaSource] = useState<"image" | "drive_video">("image");
+  const [commercialIndex, setCommercialIndex] = useState<number>(0);
+
+  // Video Library & Settings
+  const [videoSettings, setVideoSettings] = useState<VideoLibrarySettings>(getStoredVideoSettings);
+  const [videos, setVideos] = useState<LobbyVideoItem[]>(getStoredVideos);
+  const [videoLibraryOpen, setVideoLibraryOpen] = useState<boolean>(false);
+
   // Dynamic changing transition effect based on current slide index
   const currentTransition =
     SLIDE_TRANSITION_EFFECTS[currentIndex % SLIDE_TRANSITION_EFFECTS.length];
@@ -136,6 +155,17 @@ export function Index() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Preload next commercial video clip to prevent playback stutter
+  useEffect(() => {
+    const enabledVideos = videos.filter((v) => v.enabled);
+    if (enabledVideos.length > 0) {
+      const nextVid = enabledVideos[commercialIndex % enabledVideos.length];
+      if (nextVid?.videoSrc) {
+        preloadVideo(nextVid.videoSrc);
+      }
+    }
+  }, [videos, commercialIndex]);
 
   // Sync mode from search params if present
   useEffect(() => {
@@ -185,9 +215,15 @@ export function Index() {
 
   const slideDurationSec = currentProduct?.displayDuration || 25;
 
-  // TV & Wide Screen Rotation Timer and Progress Bar
+  // TV & Wide Screen Rotation Timer with Interstitial Commercial Interleaving (Every 3 slides)
   useEffect(() => {
-    if (isPaused || (viewMode !== "tv" && viewMode !== "widescreen") || !products.length) return;
+    if (
+      isPaused ||
+      isCommercialActive ||
+      (viewMode !== "tv" && viewMode !== "widescreen") ||
+      !products.length
+    )
+      return;
 
     const intervalMs = 100;
     const stepIncrement = (intervalMs / (slideDurationSec * 1000)) * 100;
@@ -195,6 +231,26 @@ export function Index() {
     const timer = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
+          // Increment consecutive product counter
+          setConsecutiveProductCount((oldCount) => {
+            const nextCount = oldCount + 1;
+            const threshold = videoSettings.videoIntervalSlides || 3;
+
+            // Trigger interstitial commercial video every 3 consecutive product slides!
+            if (videoSettings.enableVideoInterludes && nextCount >= threshold) {
+              const enabledVideos = videos.filter((v) => v.enabled);
+              if (enabledVideos.length > 0) {
+                const selectedVid = enabledVideos[commercialIndex % enabledVideos.length]!;
+                setActiveCommercialVideo(selectedVid);
+                setIsCommercialActive(true);
+                setCommercialIndex((idx) => idx + 1);
+                return 0; // reset consecutive counter
+              }
+            }
+            return nextCount;
+          });
+
+          // Move to next product slide
           setCurrentIndex((idx) => (idx + 1) % products.length);
           return 0;
         }
@@ -203,7 +259,40 @@ export function Index() {
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [isPaused, slideDurationSec, products.length, viewMode]);
+  }, [
+    isPaused,
+    isCommercialActive,
+    slideDurationSec,
+    products.length,
+    viewMode,
+    videoSettings.enableVideoInterludes,
+    videoSettings.videoIntervalSlides,
+    videos,
+    commercialIndex,
+  ]);
+
+  const handleCommercialFinished = useCallback(() => {
+    setIsCommercialActive(false);
+    setActiveCommercialVideo(null);
+    setProgress(0);
+  }, []);
+
+  const handlePlayVideoNow = useCallback((videoToPlay: LobbyVideoItem) => {
+    setActiveCommercialVideo(videoToPlay);
+    setIsCommercialActive(true);
+    setIsPaused(true);
+  }, []);
+
+  const handleManualTriggerCommercial = useCallback(() => {
+    const enabledVideos = videos.filter((v) => v.enabled);
+    if (enabledVideos.length > 0) {
+      const selectedVid = enabledVideos[commercialIndex % enabledVideos.length]!;
+      setActiveCommercialVideo(selectedVid);
+      setIsCommercialActive(true);
+      setCommercialIndex((i) => i + 1);
+      setConsecutiveProductCount(0);
+    }
+  }, [videos, commercialIndex]);
 
   // Reset progress on manual change
   const handleSelectProduct = (index: number) => {
@@ -245,79 +334,136 @@ export function Index() {
   };
 
   // =========================================================================
-  // VIEW MODE: WIDESCREEN LOBBY SIGNAGE (מסך רחב לשילוט לובי - רקע בהיר משולב כהה ומעבר משתנה)
+  // VIEW MODE: WIDESCREEN LOBBY SIGNAGE (Ultra-wide 21:9 & 4K Digital Kiosk)
   // =========================================================================
   if (viewMode === "widescreen") {
     return (
       <div
         dir="rtl"
-        className="fixed inset-0 w-screen h-screen bg-[#edf0f5] text-slate-900 flex flex-col justify-between overflow-hidden select-none font-sans z-50 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] [background-size:26px_26px]"
+        className="fixed inset-0 w-screen h-screen bg-[#0B1320] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans z-50"
       >
-        {/* Top Floating Bar: Luminous Light Header with High-Contrast Dark Elements */}
-        <header className="w-full px-8 py-3 flex items-center justify-between border-b border-slate-300/80 bg-white/95 backdrop-blur-md shadow-xs shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500 text-slate-950 font-black text-xl shadow-md border border-amber-600/30">
-              ח.ס
-            </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-black tracking-tight text-slate-950">
-                  ח. סבן חומרי בניין (1994) בע״מ
-                </h1>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 text-amber-400 border border-slate-800 px-3 py-0.5 text-xs font-bold shadow-xs">
-                  שילוט דיגיטלי חכם • {selectedScreen}
-                </span>
-                <span className="hidden lg:inline-flex items-center gap-1.5 rounded-xl bg-amber-500/15 text-slate-900 border border-amber-500/30 px-2.5 py-0.5 text-xs font-extrabold shadow-2xs">
-                  <Sparkles className="size-3 text-amber-600" />
-                  אפקט מעבר משתנה: {currentTransition.label}
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 mt-0.5 font-medium">
-                מרכז חומרי בניין, מליטה, ברזל, איטום וגבס • הוד השרון | שירות קבלנים ואנשי מקצוע
-              </p>
+        {/* Full-Frame Interstitial Commercial Overlay (triggers every 3 slides) */}
+        {isCommercialActive && activeCommercialVideo && (
+          <FullScreenVideoPlayer
+            video={activeCommercialVideo}
+            settings={videoSettings}
+            onFinished={handleCommercialFinished}
+            onClose={handleCommercialFinished}
+          />
+        )}
+
+        {/* Video Library & Google Drive Drawer */}
+        <VideoLibraryDrawer
+          isOpen={videoLibraryOpen}
+          onClose={() => setVideoLibraryOpen(false)}
+          videos={videos}
+          settings={videoSettings}
+          onUpdateVideos={(v) => {
+            setVideos(v);
+            saveStoredVideos(v);
+          }}
+          onUpdateSettings={(s) => {
+            setVideoSettings(s);
+            saveStoredVideoSettings(s);
+          }}
+          onPlayVideoNow={handlePlayVideoNow}
+        />
+
+        {/* Top Header: Deep Industrial Navy & Warning Orange with Responsive Scaling */}
+        <header className="w-full px-8 py-3.5 flex items-center justify-between border-b border-white/10 bg-[#0B1320]/95 backdrop-blur-md shadow-lg shrink-0">
+          <div className="flex items-center gap-5">
+            <SabanLogo size="md" showTagline={true} />
+            <div className="hidden xl:flex items-center gap-2 pr-4 border-r border-white/10 text-xs">
+              <span className="font-mono font-bold text-[#F97316] bg-[#F97316]/15 border border-[#F97316]/30 px-2.5 py-1 rounded-lg">
+                {screenDimensions.aspectRatioLabel} •{" "}
+                {screenDimensions.isUltraWide
+                  ? "UltraWide 21:9"
+                  : screenDimensions.is4K
+                    ? "4K UHD"
+                    : "Showroom 16:9"}
+              </span>
+              <span className="text-slate-400 font-medium">
+                קנה-מידה: {screenDimensions.scaleFactor}x
+              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Dynamic Visual Effect Badge */}
-            <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
-              <span className="text-[11px] text-slate-400 font-normal">אפקט:</span>
-              <span className="font-bold text-slate-900">{currentTransition.label}</span>
+            {/* Interstitial Ad Countdown Badge */}
+            <div className="hidden sm:flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 shadow-inner">
+              <Clock className="size-3.5 text-[#F97316]" />
+              <span>
+                מעברון בעוד{" "}
+                <strong className="text-[#F97316]">
+                  {Math.max(1, (videoSettings.videoIntervalSlides || 3) - consecutiveProductCount)}
+                </strong>{" "}
+                שקופיות
+              </span>
             </div>
 
-            {/* Quick Return to Standard View (Subtle Exit Control) */}
+            {/* Video Library Drawer Button */}
+            <button
+              type="button"
+              onClick={() => setVideoLibraryOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white hover:text-[#F97316] bg-slate-800/80 hover:bg-slate-700 border border-slate-700 transition-colors shadow-2xs"
+              title="ספריית סרטוני תדמית ו-Google Drive"
+            >
+              <Film className="size-3.5 text-[#F97316]" />
+              <span>סרטונים & Drive</span>
+            </button>
+
+            {/* Manual Commercial Trigger */}
+            <button
+              type="button"
+              onClick={handleManualTriggerCommercial}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#F97316]/20 hover:bg-[#F97316]/30 text-[#F97316] border border-[#F97316]/40 transition-colors"
+              title="הפעל מעברון תדמית כעת"
+            >
+              <Play className="size-3 fill-[#F97316]" />
+              <span>מעברון עכשיו</span>
+            </button>
+
+            {/* Transition Badge */}
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 shadow-2xs">
+              <span className="text-[11px] text-slate-400 font-normal">אפקט:</span>
+              <span className="font-bold text-white">{currentTransition.label}</span>
+            </div>
+
+            {/* Exit Wide Screen */}
             <button
               type="button"
               onClick={() => setViewMode("tv")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors shadow-2xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors shadow-2xs"
               title="יציאה ממצב מסך רחב"
             >
               <Minimize2 className="size-3.5" />
-              <span>יציאה ממסך רחב</span>
+              <span>יציאה</span>
             </button>
 
-            <div className="text-left font-mono text-xs font-bold bg-slate-900 text-amber-400 px-3 py-1.5 rounded-xl shadow-xs">
+            <div className="text-left font-mono text-xs font-bold bg-black text-[#F97316] border border-[#F97316]/30 px-3 py-1.5 rounded-xl shadow-xs">
               {products.length > 0 ? `${currentIndex + 1}/${products.length}` : "—"}
             </div>
           </div>
         </header>
 
-        {/* Top Subtle Slide Progress Line */}
-        <div className="w-full h-1.5 bg-slate-300/80 overflow-hidden shrink-0">
+        {/* Top Slide Progress Line with High-Energy Warning Orange Accent */}
+        <div className="w-full h-1.5 bg-slate-800 overflow-hidden shrink-0">
           <div
-            className="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 transition-all duration-100 ease-linear shadow-xs"
+            className="h-full bg-gradient-to-r from-[#F97316] via-amber-400 to-[#EA580C] transition-all duration-100 ease-linear shadow-xs"
             style={{ width: `${progress}%` }}
           />
         </div>
 
         {/* Loading State in Wide Screen */}
         {(!currentProduct || isLoading) && (
-          <main className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="size-20 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center animate-pulse mb-6 shadow-sm">
+          <main className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#0B1320]">
+            <div className="size-20 rounded-3xl bg-[#F97316]/10 text-[#F97316] flex items-center justify-center animate-pulse mb-6 shadow-sm border border-[#F97316]/30">
               <Package className="size-10" />
             </div>
-            <h2 className="text-2xl font-black text-slate-950">טוען נתונים חיים מגיליון סבן...</h2>
-            <p className="text-sm text-slate-500 mt-2">סנכרון ישיר מול קטלוג מוצרים הרשמי</p>
+            <h2 className="text-2xl font-black text-white">טוען נתונים חיים מגיליון סבן...</h2>
+            <p className="text-sm text-slate-400 mt-2">
+              סנכרון ישיר מול קטלוג מוצרים הרשמי וסרטוני שטח
+            </p>
           </main>
         )}
 
@@ -325,28 +471,58 @@ export function Index() {
         {currentProduct && !isLoading && (
           <main
             key={currentProduct.sku + "-" + currentIndex}
-            className={`flex-1 px-8 py-5 grid grid-cols-12 gap-7 items-stretch min-h-0 overflow-hidden ${currentTransition.className} relative`}
+            className={`flex-1 px-8 py-5 grid grid-cols-12 gap-7 items-stretch min-h-0 overflow-hidden ${currentTransition.className} relative bg-[#0B1320]`}
           >
             {/* Subtle light sheen passing sweep on slide transition */}
             <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-              <div className="w-1/3 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-sweep-shine" />
+              <div className="w-1/3 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent animate-sweep-shine" />
             </div>
 
             {/* Left 8 Columns: Hero Packaging Visual, Spec Highlights & Sheet Data Row */}
-            <div className="col-span-8 flex flex-col justify-between rounded-3xl border border-slate-300/90 bg-white p-7 shadow-xl relative overflow-hidden">
+            <div className="col-span-8 flex flex-col justify-between rounded-3xl border border-white/10 bg-[#121B2B] p-7 shadow-2xl relative overflow-hidden text-white">
               {/* Product Badge Strip */}
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="rounded-xl bg-slate-900 text-white font-bold text-xs px-3.5 py-1.5 shadow-xs">
+                  <span className="rounded-xl bg-[#0B1320] text-[#F97316] border border-[#F97316]/40 font-bold text-xs px-3.5 py-1.5 shadow-xs">
                     {currentProduct.category}
                   </span>
-                  <span className="text-sm font-bold text-slate-800">
-                    מותג: <strong className="text-slate-950">{currentProduct.brand}</strong>
+                  <span className="text-sm font-bold text-slate-200">
+                    מותג: <strong className="text-white">{currentProduct.brand}</strong>
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm bg-amber-500 text-slate-950 px-3 py-1 rounded-xl font-black border border-amber-600/30 shadow-xs">
+                <div className="flex items-center gap-3">
+                  {/* Media Source Switcher: Image vs Video */}
+                  <div className="flex items-center bg-[#0B1320] rounded-xl p-0.5 border border-white/10 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setActiveMediaSource("image")}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${
+                        activeMediaSource === "image"
+                          ? "bg-[#F97316] text-[#0B1320]"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      תצוגת מארז
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveMediaSource("drive_video");
+                        handleManualTriggerCommercial();
+                      }}
+                      className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors ${
+                        activeMediaSource === "drive_video"
+                          ? "bg-[#F97316] text-[#0B1320]"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Film className="size-3" />
+                      <span>סרטון שטח</span>
+                    </button>
+                  </div>
+
+                  <span className="font-mono text-sm bg-[#F97316] text-[#0B1320] px-3 py-1 rounded-xl font-black border border-[#F97316]/40 shadow-xs">
                     מק״ט: {currentProduct.sku}
                   </span>
                 </div>
@@ -354,11 +530,11 @@ export function Index() {
 
               {/* Center Stage: High-Contrast Dark Podium for Product Photo + Details */}
               <div className="my-auto grid grid-cols-12 gap-7 items-center py-3">
-                {/* Product Photo Render on High-Contrast Deep Dark Podium */}
-                <div className="col-span-5 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl relative overflow-hidden group min-h-[300px]">
-                  {/* Subtle Amber Spotlight Glow */}
-                  <div className="absolute inset-0 bg-radial from-amber-500/15 via-transparent to-transparent pointer-events-none" />
-                  <div className="relative z-10">
+                {/* Product Photo Render with Ken Burns Zoom & Drop Shadow */}
+                <div className="col-span-5 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-[#0B1320] via-[#0D1829] to-[#0B1320] border border-white/10 shadow-2xl relative overflow-hidden group min-h-[300px]">
+                  {/* Subtle Orange Spotlight Glow */}
+                  <div className="absolute inset-0 bg-radial from-[#F97316]/20 via-transparent to-transparent pointer-events-none" />
+                  <div className="relative z-10 transition-transform duration-700 ease-out hover:scale-105">
                     <img
                       src={currentProduct.image}
                       alt={currentProduct.name}
@@ -368,10 +544,10 @@ export function Index() {
                           target.src = "/assets/product-adhesive-bag.jpg";
                         }
                       }}
-                      className="max-h-[290px] w-auto object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.8)] transition-transform duration-700 hover:scale-105"
+                      className="max-h-[290px] w-auto object-contain drop-shadow-[0_25px_40px_rgba(0,0,0,0.95)]"
                     />
                     {currentProduct.discountTag && (
-                      <div className="absolute -top-3 -right-3 rounded-xl bg-amber-500 text-slate-950 font-black text-xs px-3.5 py-1.5 shadow-lg">
+                      <div className="absolute -top-3 -right-3 rounded-xl bg-[#F97316] text-[#0B1320] font-black text-xs px-3.5 py-1.5 shadow-lg">
                         {currentProduct.discountTag}
                       </div>
                     )}
@@ -380,21 +556,21 @@ export function Index() {
 
                 {/* Product Typography & Deep Contrast "Ask the Desk" Price Line */}
                 <div className="col-span-7 space-y-4">
-                  <h2 className="text-3xl lg:text-4xl font-black text-slate-950 leading-tight tracking-tight">
+                  <h2 className="text-3xl lg:text-4xl font-black text-white leading-tight tracking-tight drop-shadow-sm">
                     {currentProduct.name}
                   </h2>
 
-                  <p className="text-base text-slate-700 leading-relaxed font-normal">
+                  <p className="text-base text-slate-300 leading-relaxed font-normal">
                     {currentProduct.marketingPhrase}
                   </p>
 
                   {/* PRICE REPLACEMENT: High-Impact Dark Contrast Box */}
-                  <div className="rounded-2xl bg-slate-900 text-white p-5 border border-slate-800 shadow-xl space-y-1.5">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
-                      מחיר ומבצעי קבלנים:
+                  <div className="rounded-2xl bg-[#0B1320] text-white p-5 border border-white/15 shadow-xl space-y-1.5">
+                    <span className="text-xs font-bold text-[#F97316] uppercase tracking-wider block">
+                      מחיר ומבצעי קבלנים בדלפק:
                     </span>
                     <div className="flex items-baseline gap-3 flex-wrap">
-                      <span className="text-3xl lg:text-4xl font-black text-amber-400 tracking-tight">
+                      <span className="text-3xl lg:text-4xl font-black text-[#F97316] tracking-tight">
                         שאל את הדלפק
                       </span>
                       <span className="text-sm text-slate-300 font-medium">
@@ -403,7 +579,7 @@ export function Index() {
                       </span>
                     </div>
                     <div className="text-xs text-amber-300/90 font-medium flex items-center gap-1.5 pt-0.5">
-                      <Users className="size-3.5" />
+                      <Users className="size-3.5 text-[#F97316]" />
                       <span>מחיר מיוחד לקבלנים בהתאמה לכמויות הפרויקט</span>
                     </div>
                   </div>
@@ -411,48 +587,48 @@ export function Index() {
               </div>
 
               {/* Technical Highlights Quick Strip */}
-              <div className="grid grid-cols-4 gap-3 pt-3 border-t border-slate-200">
-                <div className="rounded-2xl bg-slate-100/90 border border-slate-200/90 p-3 text-center shadow-2xs">
-                  <span className="text-xs text-slate-500 block font-medium">כושר כיסוי</span>
-                  <span className="text-lg font-black text-slate-950">
+              <div className="grid grid-cols-4 gap-3 pt-3 border-t border-white/10">
+                <div className="rounded-2xl bg-[#0B1320]/80 border border-white/10 p-3 text-center shadow-inner">
+                  <span className="text-xs text-slate-400 block font-medium">כושר כיסוי</span>
+                  <span className="text-lg font-black text-white">
                     {currentProduct.coveragePerUnitM2} מ״ר
                   </span>
-                  <span className="text-[11px] text-slate-500 block">
+                  <span className="text-[11px] text-slate-400 block">
                     ל{currentProduct.unitLabel}
                   </span>
                 </div>
 
-                <div className="rounded-2xl bg-slate-100/90 border border-slate-200/90 p-3 text-center shadow-2xs">
-                  <span className="text-xs text-slate-500 block font-medium">זמן פתוח / עבודה</span>
-                  <span className="text-lg font-black text-slate-950 truncate block">
+                <div className="rounded-2xl bg-[#0B1320]/80 border border-white/10 p-3 text-center shadow-inner">
+                  <span className="text-xs text-slate-400 block font-medium">זמן פתוח / עבודה</span>
+                  <span className="text-lg font-black text-white truncate block">
                     {currentProduct.openTime || currentProduct.potLife || "מיידי"}
                   </span>
-                  <span className="text-[11px] text-slate-500 block">בדלי ועל מצע</span>
+                  <span className="text-[11px] text-slate-400 block">בדלי ועל מצע</span>
                 </div>
 
-                <div className="rounded-2xl bg-slate-100/90 border border-slate-200/90 p-3 text-center shadow-2xs">
-                  <span className="text-xs text-slate-500 block font-medium">זמן ייבוש</span>
-                  <span className="text-lg font-black text-slate-950 truncate block">
+                <div className="rounded-2xl bg-[#0B1320]/80 border border-white/10 p-3 text-center shadow-inner">
+                  <span className="text-xs text-slate-400 block font-medium">זמן ייבוש</span>
+                  <span className="text-lg font-black text-white truncate block">
                     {currentProduct.dryingTime?.split(",")[0] || "24 שעות"}
                   </span>
-                  <span className="text-[11px] text-slate-500 block">הליכה / שכבה הבאה</span>
+                  <span className="text-[11px] text-slate-400 block">הליכה / שכבה הבאה</span>
                 </div>
 
-                <div className="rounded-2xl bg-slate-100/90 border border-slate-200/90 p-3 text-center shadow-2xs">
-                  <span className="text-xs text-slate-500 block font-medium">
+                <div className="rounded-2xl bg-[#0B1320]/80 border border-white/10 p-3 text-center shadow-inner">
+                  <span className="text-xs text-slate-400 block font-medium">
                     תקן ישראלי/אירופי
                   </span>
-                  <span className="text-lg font-black text-slate-950 truncate block">
+                  <span className="text-lg font-black text-white truncate block">
                     {currentProduct.standard || "תקן סבן"}
                   </span>
-                  <span className="text-[11px] text-slate-500 block">בדיקות מעבדה</span>
+                  <span className="text-[11px] text-slate-400 block">בדיקות מעבדה</span>
                 </div>
               </div>
 
               {/* SPEC DETAILS ROW FROM SHEET (Deep Contrast Banner) */}
-              <div className="mt-3.5 rounded-2xl bg-slate-900 text-slate-100 border border-slate-800 px-4 py-3 flex items-center justify-between gap-4 flex-wrap shadow-md">
+              <div className="mt-3.5 rounded-2xl bg-[#0B1320] text-slate-100 border border-white/15 px-4 py-3 flex items-center justify-between gap-4 flex-wrap shadow-lg">
                 <div className="flex items-center gap-3 text-xs text-slate-300">
-                  <span className="font-bold text-slate-950 bg-amber-500 px-2.5 py-1 rounded-lg">
+                  <span className="font-bold text-[#0B1320] bg-[#F97316] px-2.5 py-1 rounded-lg">
                     מפרט מגליון:
                   </span>
                   <span>
@@ -473,7 +649,7 @@ export function Index() {
                 </div>
 
                 {/* CALL TO ACTION: שאל את נציג הדלפק */}
-                <div className="flex items-center gap-2 text-xs font-black text-slate-950 bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 rounded-xl shadow-xs transition-colors">
+                <div className="flex items-center gap-2 text-xs font-black text-[#0B1320] bg-[#F97316] hover:bg-[#EA580C] px-3.5 py-1.5 rounded-xl shadow-xs transition-colors">
                   <PhoneCall className="size-4 animate-bounce" />
                   <span>שאל את נציג הדלפק לפרטים מלאים והזמנה</span>
                 </div>
@@ -481,55 +657,90 @@ export function Index() {
             </div>
 
             {/* Right 4 Columns: Massive High-Contrast QR Code in Dark Contrast Tower */}
-            <div className="col-span-4 flex flex-col justify-between rounded-3xl border border-slate-800 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 p-7 shadow-2xl text-center text-white relative overflow-hidden">
+            <div className="col-span-4 flex flex-col justify-between rounded-3xl border border-white/10 bg-gradient-to-b from-[#121B2B] via-[#0B1320] to-[#070D18] p-7 shadow-2xl text-center text-white relative overflow-hidden">
               {/* Corner Ambient Glow */}
-              <div className="absolute top-0 right-0 size-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute top-0 right-0 size-36 bg-[#F97316]/15 rounded-full blur-3xl pointer-events-none" />
 
-              <div className="space-y-2.5 relative z-10">
-                <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-4 py-1.5 text-xs font-bold shadow-xs">
+              <div className="space-y-2 relative z-10">
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30 px-4 py-1.5 text-xs font-bold shadow-xs">
                   <QrCode className="size-4" />
                   <span>סריקה מהירה בנייד</span>
                 </div>
                 <h3 className="text-2xl lg:text-3xl font-black text-white">
                   סרוק עכשיו למפרט טכני
                 </h3>
-                <p className="text-sm text-slate-400 max-w-xs mx-auto">
+                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
                   פתח את מצלמת הנייד וכיוון לקוד: גישה ישירה למפרט, מחשבון כמויות וייעוץ
                 </p>
               </div>
 
               {/* Giant QR Card */}
               <div className="my-auto flex flex-col items-center justify-center relative z-10">
-                <div className="rounded-3xl bg-white p-5 shadow-2xl flex items-center justify-center border-4 border-slate-800/80">
+                <div className="rounded-3xl bg-white p-5 shadow-2xl flex items-center justify-center border-4 border-[#0B1320]">
                   {isClient ? (
-                    <QRCodeSVG value={qrUrl} size={240} level="Q" includeMargin={false} />
+                    <QRCodeSVG value={qrUrl} size={220} level="Q" includeMargin={false} />
                   ) : (
-                    <div className="size-[240px] rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-400">
+                    <div className="size-[220px] rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-400">
                       <QrCode className="size-20 opacity-40 animate-pulse" />
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-amber-400 mt-3 font-mono font-bold tracking-wider">
+                <span className="text-xs text-[#F97316] mt-3 font-mono font-bold tracking-wider">
                   מק״ט: {currentProduct.sku} • {selectedScreen}
                 </span>
               </div>
 
-              {/* Bottom Large Prompt */}
-              <div className="rounded-2xl bg-amber-500 text-slate-950 p-4 text-center shadow-lg font-black relative z-10">
-                <p className="text-base font-black">יש לך שאלה? שאל את נציג הדלפק</p>
-                <p className="text-xs text-slate-900/80 font-semibold mt-1">
+              {/* Dedicated Quick-Chat CTA Badge with Noa Avatar */}
+              <div className="rounded-2xl bg-[#0B1320] border border-white/10 p-3.5 text-center shadow-lg relative z-10 space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 text-right">
+                    <NoaAvatar size={38} showOnlineStatus={true} />
+                    <div>
+                      <p className="text-xs font-black text-white leading-none">
+                        נועה • נציגת דלפק ושירות
+                      </p>
+                      <p className="text-[10px] text-emerald-400 font-bold mt-1">
+                        מחוברת • שאל בצ׳אט או בווטסאפ
+                      </p>
+                    </div>
+                  </div>
+
+                  <a
+                    href={whatsappLink(
+                      `שלום נועה, אני מול מסך השילוט לגבי ${currentProduct.name} (מק״ט ${currentProduct.sku}).`,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 shadow-xs transition-colors shrink-0"
+                  >
+                    <MessageCircle className="size-3.5" />
+                    <span>ווטסאפ</span>
+                  </a>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-noa-chat"))}
+                  className="w-full px-3 py-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1320] text-xs font-black flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-98 cursor-pointer"
+                >
+                  <MessageCircle className="size-3.5" />
+                  <span>שאל את נועה בצ'אט ישיר (מחשבון & מפרט)</span>
+                </button>
+
+                <div className="text-[11px] text-slate-300 font-medium">
                   הנציגים שלנו כאן לרשותך להתאמת חומרים, כמויות ומחיר קבלן
-                </p>
+                </div>
               </div>
             </div>
           </main>
         )}
 
-        {/* Bottom Ticker Line: Sleek Dark Contrast Strip */}
-        <footer className="w-full px-8 py-2.5 bg-slate-900 text-slate-300 border-t border-slate-800 flex items-center justify-between text-xs shrink-0">
+        {/* Bottom Ticker Line: Sleek Dark Navy & Warning Orange Strip */}
+        <footer className="w-full px-8 py-2.5 bg-[#070D18] text-slate-300 border-t border-white/10 flex items-center justify-between text-xs shrink-0">
           <div className="flex items-center gap-6">
             <span className="font-bold text-white">
-              ח. סבן הוד השרון: סניף החרש 4 (מגרש ראשי) | סניף התלמיד 6 (גבס וצבע)
+              ח. סבן הוד השרון: סניף החרש 4 (מגרש ראשי לחומרים כבדים) | סניף התלמיד 6 (גבס, צבע
+              ופרזול)
             </span>
             <span className="hidden md:inline text-slate-400">
               • מחיר המוצר: שאל את הדלפק לקבלת הצעת מחיר מדויקת
@@ -537,13 +748,16 @@ export function Index() {
           </div>
 
           <div className="flex items-center gap-4">
-            <span className="text-amber-400 font-bold flex items-center gap-1.5">
+            <span className="text-[#F97316] font-bold flex items-center gap-1.5">
               <Sparkles className="size-3" />
               מעבר: {currentTransition.label}
             </span>
             <span className="text-slate-400">החלפת שקופית כל {slideDurationSec} שניות</span>
           </div>
         </footer>
+
+        {/* Floating Noa AI Assistant Widget for Interactive Touch & Inquiries */}
+        <NoaChat product={currentProduct} screenId={selectedScreen} />
       </div>
     );
   }
@@ -553,40 +767,91 @@ export function Index() {
       dir="rtl"
       className="min-h-screen bg-[#edf0f5] text-slate-900 flex flex-col font-sans selection:bg-primary/30 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] [background-size:26px_26px]"
     >
+      {/* Full-Frame Interstitial Commercial Overlay (triggers every 3 slides) */}
+      {isCommercialActive && activeCommercialVideo && (
+        <FullScreenVideoPlayer
+          video={activeCommercialVideo}
+          settings={videoSettings}
+          onFinished={handleCommercialFinished}
+          onClose={handleCommercialFinished}
+        />
+      )}
+
+      {/* Video Library & Google Drive Drawer */}
+      <VideoLibraryDrawer
+        isOpen={videoLibraryOpen}
+        onClose={() => setVideoLibraryOpen(false)}
+        videos={videos}
+        settings={videoSettings}
+        onUpdateVideos={(v) => {
+          setVideos(v);
+          saveStoredVideos(v);
+        }}
+        onUpdateSettings={(s) => {
+          setVideoSettings(s);
+          saveStoredVideoSettings(s);
+        }}
+        onPlayVideoNow={handlePlayVideoNow}
+      />
+
       {/* Top TV & Control Bar */}
       <header className="border-b border-slate-300/80 bg-white/95 px-4 py-2.5 shadow-xs sticky top-0 z-40 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 flex-wrap">
           {/* Brand Logo & Name */}
           <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-amber-500 text-slate-950 font-black text-xl shadow-xs border border-amber-600/30">
-              ח.ס
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-950">
-                  ח. סבן חומרי בניין (1994) בע״מ
-                </h1>
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">
-                  שילוט חכם v2.4
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 hidden sm:block">
-                בטון, פלדה, איטום ודבקים • יועצת טכנית דיגיטלית & שילוט סניפים
-              </p>
+            <SabanLogo size="sm" showTagline={false} />
+            <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-slate-500 font-mono font-bold pr-2 border-r border-slate-200">
+              <span>{screenDimensions.aspectRatioLabel}</span>
+              <span>•</span>
+              <span>{screenDimensions.is4K ? "4K" : "HD"}</span>
             </div>
           </div>
 
-          {/* Mode Switcher Tabs */}
+          {/* Mode Switcher Tabs & Video Actions */}
           <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-2xl border border-slate-300/80 shadow-2xs">
+            {/* Interstitial Ad Countdown Badge */}
+            <div className="hidden lg:flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
+              <Clock className="size-3 text-[#F97316]" />
+              <span>
+                מעברון בעוד{" "}
+                <strong className="text-[#F97316]">
+                  {Math.max(1, (videoSettings.videoIntervalSlides || 3) - consecutiveProductCount)}
+                </strong>{" "}
+                שקופיות
+              </span>
+            </div>
+
+            {/* Video Library Drawer Button */}
+            <button
+              type="button"
+              onClick={() => setVideoLibraryOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs"
+              title="ספריית סרטוני תדמית ו-Google Drive"
+            >
+              <Film className="size-3.5 text-[#F97316]" />
+              <span>סרטונים & Drive</span>
+            </button>
+
+            {/* Manual Commercial Trigger */}
+            <button
+              type="button"
+              onClick={handleManualTriggerCommercial}
+              className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-[#F97316]/15 hover:bg-[#F97316]/25 text-[#EA580C] border border-[#F97316]/30 transition-colors"
+              title="הפעל מעברון תדמית עכשיו"
+            >
+              <Play className="size-3 fill-[#EA580C]" />
+              <span>מעברון עכשיו</span>
+            </button>
+
             {/* WIDE SCREEN BUTTON: כפתור "מסך רחב" לשילוט לובי */}
             <button
               type="button"
               onClick={() => setViewMode("widescreen")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-600 text-slate-950 transition-all shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-[#F97316] hover:bg-[#EA580C] text-white transition-all shadow-xs"
               title="הצג דף מסך רחב לשילוט לובי ללא כפתורים וללא POPUP"
             >
-              <Maximize2 className="size-3.5 text-slate-950" />
-              <span>מסך רחב</span>
+              <Maximize2 className="size-3.5" />
+              <span>מסך רחב 21:9</span>
             </button>
 
             <button
@@ -738,10 +1003,10 @@ export function Index() {
               {/* Product Visual & Headline */}
               <div className="my-6 grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
                 {/* Deep Dark Podium for Product Visual */}
-                <div className="sm:col-span-6 flex items-center justify-center p-5 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl relative overflow-hidden group min-h-[260px]">
+                <div className="sm:col-span-5 flex items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl relative overflow-hidden group min-h-[280px]">
                   {/* Subtle Amber Spotlight Glow */}
-                  <div className="absolute inset-0 bg-radial from-amber-500/15 via-transparent to-transparent pointer-events-none" />
-                  <div className="relative z-10">
+                  <div className="absolute inset-0 bg-radial from-amber-500/20 via-transparent to-transparent pointer-events-none" />
+                  <div className="relative z-10 transition-transform duration-700 ease-out hover:scale-105">
                     <img
                       src={currentProduct.image}
                       alt={currentProduct.name}
@@ -751,7 +1016,7 @@ export function Index() {
                           target.src = "/assets/product-adhesive-bag.jpg";
                         }
                       }}
-                      className="max-h-64 w-auto object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.8)] transition-transform duration-500 hover:scale-105"
+                      className="max-h-64 sm:max-h-72 w-auto object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.85)]"
                     />
                     {currentProduct.discountTag && (
                       <div className="absolute -top-3 -right-2 rounded-xl bg-amber-500 text-slate-950 font-black text-xs px-3 py-1.5 shadow-md">
@@ -761,29 +1026,30 @@ export function Index() {
                   </div>
                 </div>
 
-                <div className="sm:col-span-6 space-y-3">
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-950 leading-tight">
+                <div className="sm:col-span-7 space-y-4">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-950 leading-tight tracking-tight">
                     {currentProduct.name}
                   </h2>
-                  <p className="text-sm text-slate-700 leading-relaxed">
+                  <p className="text-sm sm:text-base text-slate-700 leading-relaxed font-normal">
                     {currentProduct.marketingPhrase}
                   </p>
 
                   {/* Pricing Box - High Impact Deep Dark Contrast */}
-                  <div className="rounded-2xl bg-slate-900 text-white p-4 border border-slate-800 space-y-1 shadow-xl">
-                    <span className="text-xs font-bold text-amber-400 block">
-                      מחיר קבלנים ומבצע:
+                  <div className="rounded-2xl bg-[#0B1320] text-white p-4 sm:p-5 border border-white/10 space-y-1.5 shadow-xl">
+                    <span className="text-xs font-bold text-amber-400 block uppercase tracking-wider">
+                      מחיר ומבצעי קבלנים בדלפק:
                     </span>
-                    <div className="flex items-baseline gap-3">
-                      <span className="text-2xl sm:text-3xl font-black text-amber-400">
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-amber-400">
                         שאל את הדלפק
                       </span>
-                      <span className="text-xs text-slate-300">
+                      <span className="text-xs sm:text-sm text-slate-300">
                         ל{currentProduct.unitLabel} ({currentProduct.unitWeight})
                       </span>
                     </div>
-                    <div className="text-xs text-amber-300/80 font-medium">
-                      פנה לנציג הדלפק לקבלת מחיר מעודכן ומבצעי כמויות
+                    <div className="text-xs text-amber-300/80 font-medium flex items-center gap-1.5 pt-0.5">
+                      <Users className="size-3.5 text-[#F97316]" />
+                      <span>פנה לנציג הדלפק לקבלת מחיר מעודכן ומבצעי כמויות</span>
                     </div>
                   </div>
                 </div>
@@ -848,16 +1114,19 @@ export function Index() {
             </div>
 
             {/* Right Column: Giant QR Code & Mobile Prompt on Deep Contrast Dark Backdrop */}
-            <div className="lg:col-span-5 flex flex-col justify-between rounded-3xl border border-slate-800 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+            <div className="lg:col-span-5 flex flex-col justify-between rounded-3xl border border-slate-800 bg-gradient-to-b from-[#121B2B] via-[#0B1320] to-[#070D18] text-white p-6 sm:p-8 shadow-2xl relative overflow-hidden text-center">
+              {/* Corner Ambient Glow */}
+              <div className="absolute top-0 right-0 size-36 bg-[#F97316]/15 rounded-full blur-3xl pointer-events-none" />
+
               <div className="space-y-2 text-center relative z-10">
-                <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 text-xs font-bold shadow-xs">
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30 px-3 py-1 text-xs font-bold shadow-xs">
                   <QrCode className="size-4" />
                   <span>סריקה מהירה בנייד</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-white">
                   סרוק עכשיו למפרט ומחשבון
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto">
+                <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
                   פתח את מצלמת הטלפון וכיוון לקוד: גישה ישירה למחשבון כמויות, ייעוץ עם נועה וסגירת
                   הזמנה לדלפק
                 </p>
@@ -874,24 +1143,62 @@ export function Index() {
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-amber-400 mt-3 font-mono font-bold">
-                  {currentProduct.sku} • {selectedScreen}
+                <span className="text-xs text-amber-400 mt-3 font-mono font-bold tracking-wider">
+                  מק״ט: {currentProduct.sku} • {selectedScreen}
                 </span>
               </div>
 
               {/* Action Buttons for Screen User / Touchscreen */}
-              <div className="space-y-2 relative z-10">
+              <div className="space-y-2.5 relative z-10 text-right">
+                {/* Dedicated Quick-Chat CTA Badge with Noa Avatar */}
+                <div className="rounded-2xl bg-[#0B1320] border border-white/15 p-3.5 shadow-lg relative z-10 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 text-right">
+                      <NoaAvatar size={36} showOnlineStatus={true} />
+                      <div>
+                        <p className="text-xs font-black text-white leading-none">
+                          נועה • נציגת דלפק ושירות
+                        </p>
+                        <p className="text-[10px] text-emerald-400 font-bold mt-1">
+                          מחוברת • מענה מהיר & מפרטים
+                        </p>
+                      </div>
+                    </div>
+
+                    <a
+                      href={whatsappLink(
+                        `שלום נועה, אני מול מסך השילוט לגבי ${currentProduct.name} (מק״ט ${currentProduct.sku}).`,
+                      )}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 shadow-xs transition-colors shrink-0"
+                    >
+                      <MessageCircle className="size-3.5" />
+                      <span>ווטסאפ</span>
+                    </a>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent("open-noa-chat"))}
+                    className="w-full px-3 py-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1320] text-xs font-black flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-98 cursor-pointer"
+                  >
+                    <MessageCircle className="size-3.5" />
+                    <span>שאל את נועה בצ'אט ישיר (מחשבון & מפרט)</span>
+                  </button>
+                </div>
+
                 <Link
                   to="/product/$sku"
                   params={{ sku: currentProduct.sku }}
-                  className="w-full h-12 rounded-2xl font-black bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center gap-2 transition-transform active:scale-98 shadow-lg"
+                  className="w-full h-12 rounded-2xl font-black bg-[#F97316] hover:bg-[#EA580C] text-[#0B1320] flex items-center justify-center gap-2 transition-transform active:scale-98 shadow-lg"
                 >
-                  <Smartphone className="size-4" />
+                  <Smartphone className="size-4 text-[#0B1320]" />
                   <span>פתח דף מוצר אינטראקטיבי בנייד</span>
                 </Link>
 
                 <p className="text-[11px] text-center text-slate-400">
-                  נציגת שירות ויועצת טכנית של סבן (נועה 💭) זמינה בכל רגע בצ׳אט
+                  כל המחירים וההנחות המיוחדות לקבלנים נסגרים ישירות בדלפק סבן
                 </p>
               </div>
             </div>

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { NoaAvatar } from "./NoaAvatar";
 
 import {
   ColorPaletteDrawer,
@@ -224,6 +225,12 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
   const bootstrapped = useRef(false);
 
   useEffect(() => {
+    const handleOpen = () => setOpen(true);
+    window.addEventListener("open-noa-chat", handleOpen);
+    return () => window.removeEventListener("open-noa-chat", handleOpen);
+  }, []);
+
+  useEffect(() => {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
     const stored = loadThreads();
@@ -288,44 +295,53 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
           <button
             type="button"
             onClick={() => setOpen(true)}
-            aria-label="פתיחת שיחה עם נועה - נציגת דלפק ראשית"
-            className="animate-noa-pulse relative flex size-16 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-2xl transition-transform active:scale-95 ring-4 ring-amber-300/60 overflow-hidden"
+            aria-label="פתיחת שיחה עם נועה - נציגת דלפק ושירות"
+            className="animate-noa-pulse relative flex size-16 items-center justify-center rounded-full bg-[#0B1320] text-white shadow-2xl transition-transform active:scale-95 ring-4 ring-[#F97316]/70 overflow-hidden group cursor-pointer"
           >
-            <img
-              src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
-              alt="נועה נציגת דלפק ראשית"
-              onError={(e) => {
-                const target = e.currentTarget;
-                target.style.display = "none";
-                const fallback = target.nextElementSibling as HTMLElement;
-                if (fallback) fallback.style.display = "flex";
-              }}
-              className="size-full object-cover"
-            />
-            <span className="hidden size-full items-center justify-center bg-amber-400 text-slate-950 font-bold text-sm">
-              <Headset className="size-7" />
-            </span>
-            <span className="absolute bottom-1 right-1 size-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-xs" />
+            <NoaAvatar size={64} showOnlineStatus={true} />
           </button>
+
           <div
-            onClick={() => setOpen(true)}
-            role="button"
-            tabIndex={0}
-            style={{ backgroundColor: "#0f172a" }}
-            className="animate-noa-pop max-w-[16rem] rounded-2xl rounded-bl-xs px-3.5 py-2.5 text-white shadow-2xl border-2 border-amber-400 cursor-pointer hover:border-amber-300 transition-all select-none"
+            style={{ backgroundColor: "#0B1320" }}
+            className="animate-noa-pop max-w-[19rem] rounded-2xl rounded-bl-xs p-3 text-white shadow-2xl border-2 border-[#F97316] select-none space-y-2 backdrop-blur-md"
           >
-            <div className="flex items-center justify-between gap-1 mb-1">
-              <span className="font-extrabold text-[13px] text-amber-300 flex items-center gap-1">
-                <span>נועה ❤️</span>
-                <span className="text-[11px] font-bold text-slate-200">דלפק ראשית</span>
+            <div className="flex items-center justify-between gap-1">
+              <span className="font-extrabold text-[13px] text-[#F97316] flex items-center gap-1.5">
+                <span>נועה</span>
+                <span className="text-[11px] font-bold text-slate-300">נציגת דלפק ושירות</span>
               </span>
-              <span className="rounded-md bg-amber-400 text-slate-950 font-black text-[10px] px-1.5 py-0.5 shadow-xs">
-                סבן
+              <span className="rounded-md bg-[#F97316] text-[#0B1320] font-black text-[10px] px-2 py-0.5 shadow-xs">
+                סבן 1994
               </span>
             </div>
-            <p className="text-slate-100 font-bold text-xs leading-normal opacity-100">
-              תיאום איסוף עצמי מהיר (Click & Collect) בסניפי החרש 4 והתלמיד 6.
+
+            <p className="text-slate-100 font-bold text-xs leading-snug">
+              תיאום איסוף עצמי מהיר, חישוב כמויות וזמינות מלאי בסניפי סבן
             </p>
+
+            {/* Dedicated Quick-Chat CTA Badges */}
+            <div className="flex items-center gap-1.5 pt-1 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="flex-1 py-1 px-2 rounded-lg bg-[#F97316] hover:bg-[#EA580C] text-[#0B1320] text-[11px] font-black flex items-center justify-center gap-1 transition-colors shadow-xs"
+              >
+                <MessageCircle className="size-3" />
+                <span>צ׳אט ישיר עם נועה</span>
+              </button>
+
+              <a
+                href={whatsappLink(
+                  `שלום נועה, אני מתעניין במוצר ${product?.name || "חומרי בניין"} בסניפי סבן הוד השרון.`,
+                )}
+                target="_blank"
+                rel="noreferrer"
+                className="py-1 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-colors shadow-xs"
+                title="שאל את נועה בווטסאפ"
+              >
+                <span>ווטסאפ</span>
+              </a>
+            </div>
           </div>
         </div>
       )}
@@ -339,32 +355,16 @@ export function NoaChat({ product, screenId }: { product?: Product | null; scree
               : "inset-x-2 bottom-2 h-[85vh] max-h-[44rem] sm:inset-x-auto sm:left-6 sm:w-[28rem]",
           )}
         >
-          <header className="flex items-center gap-2 border-b bg-slate-900 px-3.5 py-2.5 text-white">
-            <div className="relative flex size-10 items-center justify-center rounded-full bg-amber-400/20 ring-2 ring-amber-400 overflow-hidden shrink-0">
-              <img
-                src="https://saban-smart-signage.vercel.app/assets/noa-avatar.png"
-                alt="נועה | נציגת דלפק ראשית"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  target.style.display = "none";
-                  const fallback = target.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = "flex";
-                }}
-                className="size-full object-cover"
-              />
-              <span className="hidden size-full items-center justify-center bg-amber-400 text-slate-950 font-black text-sm">
-                👷‍♀️
-              </span>
-              <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-500 border border-white" />
-            </div>
+          <header className="flex items-center gap-2 border-b bg-[#0B1320] px-3.5 py-2.5 text-white">
+            <NoaAvatar size={42} showOnlineStatus={true} />
             <div className="flex-1 leading-tight text-right">
               <p className="text-sm font-black text-white flex items-center gap-1.5">
-                <span>נועה | נציגת דלפק ראשית</span>
-                <span className="text-xs">❤️</span>
+                <span>נועה • נציגת דלפק ושירות</span>
+                <span className="text-xs text-[#F97316]">★</span>
               </p>
               <p className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                 <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                מחוברת • דלפק מכירות ואיסוף עצמי (סניפי הוד השרון)
+                מחוברת • סניף החרש 4 וסניף התלמיד 6 הוד השרון
               </p>
             </div>
             <Button

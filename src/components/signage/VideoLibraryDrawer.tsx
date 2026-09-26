@@ -13,7 +13,7 @@ import {
   VolumeX,
   RotateCcw,
   Sliders,
-  FolderVideo,
+  Video,
   MonitorPlay,
   Layers,
   Clock,
@@ -172,7 +172,7 @@ export const VideoLibraryDrawer: React.FC<VideoLibraryDrawerProps> = ({
                 : "border-transparent text-slate-600 hover:text-slate-950"
             }`}
           >
-            <FolderVideo className="size-4 text-amber-600" />
+            <Video className="size-4 text-amber-600" />
             <span>ספריית הסרטונים במאגר ({videos.length})</span>
           </button>
 
@@ -456,7 +456,7 @@ export const VideoLibraryDrawer: React.FC<VideoLibraryDrawerProps> = ({
 
                 <label className="block cursor-pointer">
                   <span className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs">
-                    <FolderVideo className="size-4" />
+                    <Video className="size-4" />
                     <span>בחר קובץ MP4 / WebM להעלאה</span>
                   </span>
                   <input
