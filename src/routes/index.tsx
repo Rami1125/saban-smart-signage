@@ -37,6 +37,7 @@ import { SabanLogo } from "@/components/brand/SabanLogo";
 import { useScreenDimensions } from "@/hooks/useScreenDimensions";
 import { PWAInstallButton } from "@/components/pwa/PWAInstallButton";
 import { PaintTintOrderCard } from "@/components/paint";
+import { ClientAppView } from "@/components/client/ClientAppView";
 import { FullScreenVideoPlayer } from "@/components/signage/FullScreenVideoPlayer";
 import { VideoLibraryDrawer } from "@/components/signage/VideoLibraryDrawer";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type ScreenMode = "tv" | "pos" | "widescreen";
+type ScreenMode = "tv" | "pos" | "widescreen" | "client";
 
 export const SLIDE_TRANSITION_EFFECTS = [
   {
@@ -127,7 +128,7 @@ export function Index() {
   const [progress, setProgress] = useState<number>(0);
   const [selectedScreen, setSelectedScreen] = useState<string>(search.screen || "מסך לובי מרכזי");
   const [viewMode, setViewMode] = useState<ScreenMode>(
-    search.mode === "widescreen" ? "widescreen" : "tv",
+    search.mode === "widescreen" ? "widescreen" : search.mode === "client" ? "client" : "tv",
   );
 
   // Dynamic Viewport Detection & Ultra-wide scaling
@@ -886,6 +887,19 @@ export function Index() {
               )}
             </button>
 
+            <button
+              type="button"
+              onClick={() => setViewMode("client")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                viewMode === "client"
+                  ? "bg-amber-500 text-slate-950 font-black shadow-xs"
+                  : "text-slate-600 hover:text-slate-950"
+              }`}
+            >
+              <Smartphone className="size-3.5" />
+              <span>אפליקציית לקוח (PWA)</span>
+            </button>
+
             {currentProduct ? (
               <Link
                 to="/product/$sku"
@@ -893,7 +907,7 @@ export function Index() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-950 transition-all"
               >
                 <Smartphone className="size-3.5" />
-                <span>תצוגת נייד</span>
+                <span>מפרט מוצר</span>
                 <ExternalLink className="size-3 opacity-60" />
               </Link>
             ) : (
@@ -902,7 +916,7 @@ export function Index() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-950 transition-all"
               >
                 <Smartphone className="size-3.5" />
-                <span>תצוגת נייד</span>
+                <span>מפרט מוצר</span>
                 <ExternalLink className="size-3 opacity-60" />
               </Link>
             )}
@@ -1476,8 +1490,15 @@ export function Index() {
         </main>
       )}
 
-      {/* Floating Noa AI Assistant Widget */}
-      <NoaChat product={currentProduct} screenId={selectedScreen} />
+      {/* Pure Isolated Customer App View (ClientAppView) */}
+      {viewMode === "client" && (
+        <div className="relative z-30 min-h-screen">
+          <ClientAppView />
+        </div>
+      )}
+
+      {/* Floating Noa AI Assistant Widget (for TV / POS / Widescreen modes) */}
+      {viewMode !== "client" && <NoaChat product={currentProduct} screenId={selectedScreen} />}
     </div>
   );
 }
