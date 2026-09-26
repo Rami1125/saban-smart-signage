@@ -25,9 +25,11 @@ import { NoaAvatar } from "./NoaAvatar";
 import {
   ColorPaletteDrawer,
   ChatColorCard,
+  PaintTintOrderCard,
   findColorByCode,
   type ColorShade,
 } from "@/components/paint";
+import { parsePaintTintOrder } from "@/lib/paintOrderParser";
 
 import {
   Conversation,
@@ -162,6 +164,14 @@ type QuickAction = {
 };
 
 const QUICK_ACTIONS: QuickAction[] = [
+  {
+    id: "tint-order-889413",
+    icon: "🎨",
+    title: "כרטיס גיוון ORD-889413",
+    subtitle: "ראמי מסארוה • 0524T אפור בטון (סניף החרש 4)",
+    prompt: "כרטיס הזמנה וגיוון צבע — איסוף מהיר מס׳ ORD-889413 עבור ראמי מסארוה (סניף החרש 4)",
+    badge: "איסוף 11:15 ⏳",
+  },
   {
     id: "talmid",
     icon: "🏟️",
@@ -771,6 +781,11 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
             const textWithoutJson = stripJsonFromText(rawText);
             if (!textWithoutJson) return null;
 
+            // בדיקת כרטיס הזמנת גיוון צבע רשמי
+            const tintOrder = parsePaintTintOrder(rawText);
+            const isRawTicket =
+              rawText.includes("כרטיס הזמנה וגיוון צבע") || rawText.includes("ORD-889413");
+
             // בדיקת כרטיסיית גוון צבע אינטראקטיבית
             const colorCardMatch = textWithoutJson.match(/\[COLOR_CARD:([^\]]+)\]/);
             const colorCode = colorCardMatch ? colorCardMatch[1]?.trim() : null;
@@ -784,7 +799,7 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
 
             return (
               <React.Fragment key={message.id}>
-                {text && (
+                {text && !isRawTicket && (
                   <div
                     className={cn("flex w-full my-1.5", isUser ? "justify-start" : "justify-end")}
                   >
@@ -821,8 +836,22 @@ ${pOrder.isWeightMismatch ? "⚠️ יש לשים לב: משקל המטען עו
                   </div>
                 )}
 
+                {/* כרטיס הזמנה וגיוון צבע רשמי אינטראקטיבי */}
+                {tintOrder && (
+                  <div className="w-full flex justify-center my-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <PaintTintOrderCard
+                      order={tintOrder}
+                      onStatusChange={(newStatus) => {
+                        void submit(
+                          `עדכון סטטוס כרטיס גיוון מס׳ ${tintOrder.orderNumber}: [${newStatus}]`,
+                        );
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* כרטיסיית גוון אינטראקטיבית מתוך המניפה */}
-                {foundColor && (
+                {foundColor && !tintOrder && (
                   <div className="w-full flex justify-center my-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <ChatColorCard
                       color={foundColor}

@@ -36,6 +36,7 @@ import { NoaAvatar } from "@/components/noa/NoaAvatar";
 import { SabanLogo } from "@/components/brand/SabanLogo";
 import { useScreenDimensions } from "@/hooks/useScreenDimensions";
 import { PWAInstallButton } from "@/components/pwa/PWAInstallButton";
+import { PaintTintOrderCard } from "@/components/paint";
 import { FullScreenVideoPlayer } from "@/components/signage/FullScreenVideoPlayer";
 import { VideoLibraryDrawer } from "@/components/signage/VideoLibraryDrawer";
 import { Button } from "@/components/ui/button";
@@ -1381,86 +1382,95 @@ export function Index() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dispatchQueue.map((order) => (
-                <div
-                  key={order.id}
-                  className="rounded-3xl border bg-card p-5 shadow-xs space-y-3 relative overflow-hidden"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-mono text-muted-foreground block">
-                        קוד פנייה: {order.id}
-                      </span>
-                      <h4 className="font-bold text-base text-foreground mt-0.5">
-                        {order.productName}
-                      </h4>
-                      <span className="text-xs font-mono font-bold text-primary">
-                        מק״ט: {order.sku}
+              {dispatchQueue.map((order) => {
+                if (order.tintDetails) {
+                  return (
+                    <div key={order.id} className="col-span-1 md:col-span-2 lg:col-span-2">
+                      <PaintTintOrderCard order={order.tintDetails} />
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    key={order.id}
+                    className="rounded-3xl border bg-card p-5 shadow-xs space-y-3 relative overflow-hidden"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-mono text-muted-foreground block">
+                          קוד פנייה: {order.id}
+                        </span>
+                        <h4 className="font-bold text-base text-foreground mt-0.5">
+                          {order.productName}
+                        </h4>
+                        <span className="text-xs font-mono font-bold text-primary">
+                          מק״ט: {order.sku}
+                        </span>
+                      </div>
+
+                      <span className="rounded-full bg-success/15 text-success text-[10px] font-bold px-2 py-0.5">
+                        חדש מהלובי
                       </span>
                     </div>
 
-                    <span className="rounded-full bg-success/15 text-success text-[10px] font-bold px-2 py-0.5">
-                      חדש מהלובי
-                    </span>
-                  </div>
-
-                  <div className="rounded-2xl bg-muted/50 p-3 text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">כמות מבוקשת:</span>
-                      <span className="font-bold text-foreground">
-                        {order.quantity} {order.unitLabel}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">עלות מוערכת:</span>
-                      <span className="font-bold text-primary">
-                        ₪{order.estimatedCost.toLocaleString()}
-                      </span>
-                    </div>
-                    {order.note && (
-                      <p className="text-xs text-muted-foreground pt-1 border-t mt-1">
-                        {order.note}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Warehouse Location Hint */}
-                  <div className="text-xs text-muted-foreground flex items-center justify-between">
-                    <span>
-                      מיקום: <strong>מחסן 4 (החרש)</strong> • שורה ג׳
-                    </span>
-                    <span className="text-[10px]">
-                      {new Date(order.createdAt).toLocaleTimeString("he-IL", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2">
-                    <a
-                      href={whatsappLink(
-                        `שלום, לגבי פנייתך לדלפק סבן על ${order.productName} (כמות: ${order.quantity}). ההזמנה מוכנה לאיסוף.`,
+                    <div className="rounded-2xl bg-muted/50 p-3 text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">כמות מבוקשת:</span>
+                        <span className="font-bold text-foreground">
+                          {order.quantity} {order.unitLabel}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">עלות מוערכת:</span>
+                        <span className="font-bold text-primary">
+                          ₪{order.estimatedCost.toLocaleString()}
+                        </span>
+                      </div>
+                      {order.note && (
+                        <p className="text-xs text-muted-foreground pt-1 border-t mt-1">
+                          {order.note}
+                        </p>
                       )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 h-9 rounded-xl bg-success text-success-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-success/90"
-                    >
-                      <MessageCircle className="size-3.5" />
-                      <span>שוחח בוואטסאפ</span>
-                    </a>
+                    </div>
 
-                    <Link
-                      to="/product/$sku"
-                      params={{ sku: order.sku }}
-                      className="h-9 px-3 rounded-xl border border-input text-xs font-semibold flex items-center justify-center hover:bg-muted"
-                      title="צפה במפרט המלא של המוצר"
-                    >
-                      מפרט
-                    </Link>
+                    {/* Warehouse Location Hint */}
+                    <div className="text-xs text-muted-foreground flex items-center justify-between">
+                      <span>
+                        מיקום: <strong>מחסן 4 (החרש)</strong> • שורה ג׳
+                      </span>
+                      <span className="text-[10px]">
+                        {new Date(order.createdAt).toLocaleTimeString("he-IL", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <a
+                        href={whatsappLink(
+                          `שלום, לגבי פנייתך לדלפק סבן על ${order.productName} (כמות: ${order.quantity}). ההזמנה מוכנה לאיסוף.`,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 h-9 rounded-xl bg-success text-success-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-success/90"
+                      >
+                        <MessageCircle className="size-3.5" />
+                        <span>שוחח בוואטסאפ</span>
+                      </a>
+
+                      <Link
+                        to="/product/$sku"
+                        params={{ sku: order.sku }}
+                        className="h-9 px-3 rounded-xl border border-input text-xs font-semibold flex items-center justify-center hover:bg-muted"
+                        title="צפה במפרט המלא של המוצר"
+                      >
+                        מפרט
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </main>
